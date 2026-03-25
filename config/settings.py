@@ -52,9 +52,29 @@ SOCIAL_AUTH_PIPELINE = (
 )
 
 # Quick-start development settings
-SECRET_KEY = 'django-insecure-q6ovbtmncxx0$3kr-175^s^l4kmo8h#0xzr^+)d=9j-claz_ek'
-DEBUG = True
-ALLOWED_HOSTS = ['*']
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY',
+    'django-insecure-q6ovbtmncxx0$3kr-175^s^l4kmo8h#0xzr^+)d=9j-claz_ek',
+).strip()
+DEBUG = os.environ.get('DEBUG', 'True').strip().lower() in ('1', 'true', 'yes')
+
+_hosts = os.environ.get('ALLOWED_HOSTS', '*').strip()
+ALLOWED_HOSTS = [h.strip() for h in _hosts.split(',') if h.strip()]
+
+# Render (and similar) terminate TLS at the proxy. Without this, request.scheme is "http",
+# so Google OAuth builds redirect_uri=http://... → Error 400 redirect_uri_mismatch vs https in Console.
+_behind_tls_proxy = (
+    os.environ.get('RENDER', '').strip().lower() == 'true'
+    or os.environ.get('SECURE_BEHIND_PROXY', '').strip().lower() in ('1', 'true', 'yes')
+)
+if _behind_tls_proxy:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 # Application definition
 INSTALLED_APPS = [
@@ -217,9 +237,6 @@ else:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-SECURE_SSL_REDIRECT = True
 
 
 # CORS settings
