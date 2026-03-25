@@ -173,6 +173,7 @@ def log_registration_attempt(
     outcome: str,
     detail: str = '',
     username: str = '',
+    username_input: str = '',
     email_input: str = '',
     raw_fingerprint: str = '',
     fingerprint_preview: str = '',
@@ -187,13 +188,14 @@ def log_registration_attempt(
     ow = outcome if isinstance(outcome, str) else getattr(outcome, 'value', str(outcome))
     em = (email_input or email or '').strip()[:254]
     prev = (fingerprint_preview or make_preview(raw_fingerprint, fingerprint_hash))[:220]
+    uname = (username_input or username or '')[:150]
     RegistrationAttempt.objects.create(
         ip_address=ip or '0.0.0.0',
         fingerprint_hash=fingerprint_hash or '',
         fingerprint_preview=prev,
         email_domain=email_domain(em or email),
         email_input=em,
-        username_input=(username or '')[:150],
+        username_input=uname,
         user_agent=user_agent or '',
         device_class=(device_class or '')[:32],
         browser_family=(browser_family or '')[:64],

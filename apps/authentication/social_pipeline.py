@@ -1,6 +1,7 @@
 """social-auth-app-django pipeline steps for Google sign-in."""
+from django.contrib import messages
+from django.urls import reverse
 from django.utils import timezone
-from social_core.exceptions import AuthForbidden
 
 from apps.authentication.antiabuse import (
     PUBLIC_REGISTRATION_DENIED_MESSAGE,
@@ -21,7 +22,10 @@ def reject_blocked_user(strategy, backend, user=None, *args, **kwargs):
         msg = (getattr(user, 'blocked_reason', None) or '').strip()
         if not msg:
             msg = 'This account has been suspended.'
-        raise AuthForbidden(backend, msg)
+        messages.error(strategy.request, msg)
+        # AuthForbidden.__str__ is hard-coded in social-core; redirect + message shows real reason.
+        url = backend.setting('LOGIN_ERROR_URL') or reverse('auth:login')
+        return strategy.redirect(url)
     return {}
 
 
@@ -60,7 +64,7 @@ def enforce_oauth_registration_rules(strategy, details, backend, user=None, *arg
             fingerprint_hash=fph,
             email=email,
             email_input=email,
-            username_input='',
+            username='',
             raw_fingerprint=fp_raw,
             user_agent=ci['user_agent'],
             device_class=ci['device_class'],
@@ -70,7 +74,9 @@ def enforce_oauth_registration_rules(strategy, details, backend, user=None, *arg
             detail=f'oauth_signup {block_internal}'[:500],
         )
         maybe_auto_block_ip_after_burst(ip)
-        raise AuthForbidden(backend, PUBLIC_REGISTRATION_DENIED_MESSAGE)
+        messages.error(req, PUBLIC_REGISTRATION_DENIED_MESSAGE)
+        url = backend.setting('LOGIN_ERROR_URL') or reverse('auth:login')
+        return strategy.redirect(url)
     return {}
 
 
@@ -130,7 +136,7 @@ def finalize_new_oauth_registration(strategy, backend, user=None, *args, **kwarg
         fingerprint_hash=fph,
         email=email,
         email_input=email,
-        username_input=(user.username or '')[:150],
+        username=(user.username or '')[:150],
         raw_fingerprint=fp_raw,
         user_agent=ci['user_agent'],
         device_class=ci['device_class'],
