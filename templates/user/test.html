@@ -12,11 +12,11 @@
 <div class="vtc-hero page-subtitle mb-4">
     <p class="mb-2">Same pipeline as <code>POST /api/v1/process-audio/</code> — speech-to-text → English → classification. Server limit: <strong>{{ max_audio_seconds|floatformat:0 }}s</strong>, <strong>{{ max_audio_mb }} MB</strong>. Recording auto-stops at <strong>{{ max_record_seconds|floatformat:0 }}s</strong> (7 minutes or server max).</p>
     <p class="mb-0 small text-muted">Upload a file, or <strong>record</strong> with the mic: when you stop, <strong>listen to the preview</strong>, then <strong>Run pipeline</strong> (recordings need at least <strong>7 seconds</strong>). Processing runs in the <strong>background</strong>; use <strong>Resume last job</strong> or <strong>Check status</strong> after refresh.</p>
-</div>
+                        </div>
 
 <div class="alert ev-alert-quota mb-4" role="status">
     <strong>Quota today:</strong> {{ voice_today }} / {{ voice_limit }} voice request(s)
-</div>
+                        </div>
 
 <div class="row g-4">
     <div class="col-lg-6">
@@ -50,7 +50,7 @@
                     <div class="vtc-wave-wrap" aria-hidden="true">
                         <span class="vtc-wave-label">Input level</span>
                         <canvas class="vtc-wave-canvas" id="vtc-wave-canvas" width="600" height="72"></canvas>
-                    </div>
+                </div>
                     <p class="vtc-shortcuts mt-2 mb-0"><kbd>Space</kbd> stop &middot; Auto-stop at {{ max_record_seconds|floatformat:0 }}s &middot; Min <strong>7s</strong> before pipeline</p>
                     <div class="vtc-preview-wrap d-none" id="vtc-preview-wrap">
                         <p class="small fw-medium mb-2"><i class="fas fa-headphones me-1 text-primary"></i>Preview your recording</p>
@@ -61,31 +61,31 @@
                     </div>
                 </div>
             </div>
-        </div>
+                </div>
 
         <div class="d-flex flex-wrap gap-2 mb-2">
             <button type="button" class="btn btn-primary" id="vtc-run-btn" disabled title="Choose a file or finish a 7s+ recording">
                 <i class="fas fa-play me-2"></i>Run pipeline
             </button>
             <button type="button" class="btn btn-outline-primary" id="vtc-check-btn" disabled>
-                <i class="fas fa-sync-alt me-2"></i>Check status
-            </button>
+                        <i class="fas fa-sync-alt me-2"></i>Check status
+                    </button>
             <button type="button" class="btn btn-outline-secondary" id="vtc-resume-btn">
                 <i class="fas fa-history me-2"></i>Resume last job
             </button>
-        </div>
+                </div>
         <div class="vtc-job-bar mb-4 text-muted" id="vtc-job-bar">
             <span class="me-2">Job:</span><code class="user-select-all" id="vtc-job-id">—</code>
             <button type="button" class="btn btn-link btn-sm py-0 align-baseline d-none" id="vtc-copy-id">Copy ID</button>
-        </div>
-    </div>
+                        </div>
+                    </div>
 
     <div class="col-lg-6">
         <div class="card border-0 shadow-sm h-100" id="vtc-pipeline-card">
             <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <span class="fw-semibold"><i class="fas fa-stream me-2 text-secondary"></i>Pipeline log</span>
                 <span class="badge rounded-pill vtc-status-pill bg-light text-secondary border" id="vtc-run-state">Idle</span>
-            </div>
+                        </div>
             <div class="card-body p-0">
                 <div class="vtc-pipeline-log ev-pipeline-log" role="log" aria-live="polite" aria-relevant="additions" id="vtc-pipeline-log">
                     <p class="text-muted small px-3 py-3 mb-0" id="vtc-log-placeholder">Run the pipeline to see each step appear here as the worker completes it.</p>
@@ -328,7 +328,7 @@
             previewHint.classList.remove('d-none');
             runBtn.disabled = false;
             runBtn.title = '';
-        } else {
+                } else {
             previewTooShort.classList.remove('d-none');
             previewHint.classList.add('d-none');
             runBtn.disabled = true;
@@ -352,8 +352,8 @@
     });
     ['dragleave', 'drop'].forEach(function (ev) {
         dropzone.addEventListener(ev, function (e) {
-            e.preventDefault();
-            e.stopPropagation();
+                e.preventDefault();
+                e.stopPropagation();
             if (ev !== 'drop') dropzone.classList.remove('vtc-dropzone--active');
         });
     });
@@ -626,6 +626,6 @@
             setRunState('Resume with button', '');
         }
     } catch (e) {}
-})();
+    })();
 </script>
 {% endblock %}

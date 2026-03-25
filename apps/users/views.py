@@ -1,4 +1,5 @@
 import json
+import math
 import uuid
 
 from django.core.files.base import ContentFile
@@ -9,24 +10,38 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 from django.conf import settings
 from django.shortcuts import render, redirect
 from django.urls import reverse
-from django.contrib.auth import login, authenticate, logout
+from django.contrib.auth import authenticate, get_user_model, login, logout, update_session_auth_hash
 
 # Django 6+: login(..., backend=...) must be a dotted path string, not a class.
 MODEL_BACKEND = 'django.contrib.auth.backends.ModelBackend'
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.contrib.auth import update_session_auth_hash
 from django.utils import timezone
 from django.db import models
 from django.db.models.functions import TruncDate
 from django.db.models import Count
+
+from apps.authentication.email_verification import (
+    codes_match,
+    issue_new_code,
+    send_verification_email,
+)
 from .forms import (
-    CustomUserCreationForm, CustomAuthenticationForm, 
-    UserProfileForm, ChangePasswordForm
+    ChangePasswordForm,
+    CustomAuthenticationForm,
+    CustomUserCreationForm,
+    PendingSignupChangeEmailForm,
+    PendingSignupChangeUsernameForm,
+    UserProfileForm,
+    VerifyEmailForm,
+    registration_invalid_toast_message,
+)
+from apps.users.pending_cleanup import (
+    SESSION_PENDING_VERIFY,
+    purge_expired_unverified_users,
 )
 from apps.authentication.device_info import classify_request
 from apps.authentication.antiabuse import (
-    PUBLIC_REGISTRATION_DENIED_MESSAGE,
     attach_device_cookie,
     check_registration_allowed,
     get_client_ip,
@@ -34,6 +49,7 @@ from apps.authentication.antiabuse import (
     log_registration_attempt,
     maybe_auto_block_ip_after_burst,
     persist_device_id_on_user,
+    user_visible_registration_block_message,
 )
 from apps.authentication.models import APIKey, APIKeyLog, AntiAbuseSettings, RegistrationAttempt
 from apps.core.models import SystemSettings
@@ -41,6 +57,57 @@ from apps.core.services.audio_utils import extension_from_filename, validate_aud
 from apps.voice.models import VoiceProcessingRequest
 from apps.voice.tasks import run_voice_pipeline_task
 from datetime import timedelta
+
+
+def _get_pending_verification_user(request):
+    uid = request.session.get(SESSION_PENDING_VERIFY)
+    if not uid:
+        return None
+    User = get_user_model()
+    try:
+        user = User.objects.get(pk=uid)
+    except User.DoesNotExist:
+        request.session.pop(SESSION_PENDING_VERIFY, None)
+        return None
+    if user.is_active and user.is_verified:
+        request.session.pop(SESSION_PENDING_VERIFY, None)
+        return None
+    return user
+
+
+
+def _verify_flow_timing(user):
+    """Cooldowns and caps for resend / change-email on the verify page."""
+    gap = int(getattr(settings, 'EMAIL_VERIFICATION_RESEND_SECONDS', 60))
+    send_max = int(getattr(settings, 'EMAIL_VERIFICATION_SEND_MAX', 5))
+    cd_email = int(getattr(settings, 'PENDING_SIGNUP_EMAIL_CHANGE_COOLDOWN_SECONDS', 120))
+    now = timezone.now()
+    resend_in = 0
+    sent_at = user.email_verification_sent_at
+    elapsed_since_send = None
+    if sent_at:
+        elapsed_since_send = (now - sent_at).total_seconds()
+        if elapsed_since_send < gap:
+            resend_in = max(0, int(math.ceil(gap - elapsed_since_send)))
+    sends_done = int(user.email_verification_send_count or 0)
+    gap_ok = sent_at is None or (
+        elapsed_since_send is not None and elapsed_since_send >= gap
+    )
+    can_resend = sends_done < send_max and gap_ok
+    email_change_in = 0
+    changed_at = user.pending_signup_email_changed_at
+    if changed_at:
+        el = (now - changed_at).total_seconds()
+        if el < cd_email:
+            email_change_in = max(0, int(math.ceil(cd_email - el)))
+    return {
+        'resend_cooldown_seconds': resend_in,
+        'can_resend_code': can_resend,
+        'verification_sends_done': sends_done,
+        'verification_sends_remaining': max(0, send_max - sends_done),
+        'email_change_cooldown_seconds': email_change_in,
+        'can_change_email_now': email_change_in == 0,
+    }
 
 
 def landing_page_view(request):
@@ -70,6 +137,8 @@ def register_view(request):
     """User registration"""
     if request.user.is_authenticated:
         return redirect('admin:dashboard' if request.user.is_staff else 'user:dashboard')
+
+    purge_expired_unverified_users(request)
 
     google_on = _google_oauth_configured()
     ctx = {'form': CustomUserCreationForm(), 'google_oauth_enabled': google_on}
@@ -103,7 +172,7 @@ def register_view(request):
                 detail=block_msg[:500],
             )
             maybe_auto_block_ip_after_burst(ip)
-            messages.error(request, PUBLIC_REGISTRATION_DENIED_MESSAGE)
+            messages.error(request, user_visible_registration_block_message(block_msg))
             ctx['form'] = CustomUserCreationForm(request.POST)
             return render(request, 'auth/register.html', ctx)
 
@@ -112,6 +181,11 @@ def register_view(request):
             user = form.save(commit=False)
             user.registration_ip = ip
             user.registration_fingerprint_hash = fph
+            user.is_active = False
+            user.is_verified = False
+            user.email_verification_send_count = 0
+            user.signup_username_edit_used = False
+            user.pending_signup_email_changed_at = None
             user.save()
             try:
                 s = SystemSettings.get_settings()
@@ -128,19 +202,36 @@ def register_view(request):
             except Exception:
                 pass
             persist_device_id_on_user(user, request)
+            code = issue_new_code(user)
+            try:
+                send_verification_email(user=user, code=code)
+                user.email_verification_send_count = 1
+                user.save(update_fields=['email_verification_send_count'])
+            except Exception:
+                messages.error(
+                    request,
+                    'Your account was created but we could not send the verification email. '
+                    'Check EMAIL_* settings, then use “Resend code” on the next page.',
+                )
             log_registration_attempt(
                 ip=ip,
                 fingerprint_hash=fph,
                 email=user.email,
-                outcome=RegistrationAttempt.Outcome.SUCCESS,
-                detail='password_signup',
+                email_input=user.email,
+                username=user.username,
+                outcome=RegistrationAttempt.Outcome.PENDING_VERIFICATION,
+                detail='password_signup_otp_sent',
+                user=user,
             )
-            login(request, user, backend=MODEL_BACKEND)
-            messages.success(request, 'Registration successful! Welcome to Voice To Service.')
-            response = redirect('user:dashboard')
+            request.session[SESSION_PENDING_VERIFY] = str(user.pk)
+            messages.success(
+                request,
+                'Check your email for a 6-digit code, then enter it below with your name.',
+            )
+            response = redirect('auth:verify-email')
             attach_device_cookie(response, user)
             return response
-        messages.error(request, 'Please correct the errors below.')
+        messages.error(request, registration_invalid_toast_message(form))
         log_registration_attempt(
             ip=ip,
             fingerprint_hash=fph,
@@ -157,6 +248,200 @@ def register_view(request):
         )
         ctx['form'] = form
     return render(request, 'auth/register.html', ctx)
+
+
+def verify_email_view(request):
+    """Finish password registration: OTP + first/last name."""
+    purge_expired_unverified_users(request)
+    user = _get_pending_verification_user(request)
+    if not user:
+        messages.error(
+            request,
+            'Verification session expired or is not needed. Register or sign in.',
+        )
+        return redirect('auth:register')
+
+    google_on = _google_oauth_configured()
+    if request.method == 'POST':
+        form = VerifyEmailForm(request.POST)
+        if form.is_valid():
+            exp = user.email_verification_expires_at
+            if not exp or exp < timezone.now():
+                messages.error(request, 'This code has expired. Request a new code.')
+            elif not codes_match(user, form.cleaned_data['code']):
+                messages.error(request, 'Invalid verification code.')
+            else:
+                fp_raw = (request.POST.get('client_fingerprint') or '')[:2000]
+                fph = hash_fingerprint(fp_raw)
+                ip = get_client_ip(request)
+                ci = classify_request(request)
+                user.first_name = form.cleaned_data['first_name'].strip()
+                user.last_name = form.cleaned_data['last_name'].strip()
+                user.is_active = True
+                user.is_verified = True
+                user.email_verified_at = timezone.now()
+                user.email_verification_code_hash = ''
+                user.email_verification_sent_at = None
+                user.email_verification_expires_at = None
+                if fph and not (user.registration_fingerprint_hash or '').strip():
+                    user.registration_fingerprint_hash = fph
+                user.email_verification_send_count = 0
+                user.pending_signup_email_changed_at = None
+                user.save()
+                log_registration_attempt(
+                    ip=ip,
+                    fingerprint_hash=fph,
+                    email=user.email,
+                    email_input=user.email,
+                    username=user.username,
+                    raw_fingerprint=fp_raw,
+                    user_agent=ci['user_agent'],
+                    device_class=ci['device_class'],
+                    browser_family=ci['browser_family'],
+                    os_family=ci['os_family'],
+                    outcome=RegistrationAttempt.Outcome.SUCCESS,
+                    detail='password_signup_verified',
+                    user=user,
+                )
+                request.session.pop(SESSION_PENDING_VERIFY, None)
+                login(request, user, backend=MODEL_BACKEND)
+                messages.success(request, 'Email verified. Welcome to Voice To Service.')
+                response = redirect('user:dashboard')
+                attach_device_cookie(response, user)
+                return response
+    else:
+        form = VerifyEmailForm()
+
+    timing = _verify_flow_timing(user)
+    send_max = int(getattr(settings, 'EMAIL_VERIFICATION_SEND_MAX', 5))
+    resend_gap = int(getattr(settings, 'EMAIL_VERIFICATION_RESEND_SECONDS', 60))
+    ctx = {
+        'form': form,
+        'verify_email': user.email,
+        'google_oauth_enabled': google_on,
+        'verify_timing': timing,
+        'verification_send_max': send_max,
+        'resend_gap_seconds': resend_gap,
+        'change_email_form': PendingSignupChangeEmailForm(current_user=user),
+        'change_username_form': PendingSignupChangeUsernameForm(current_user=user),
+        'can_change_username': not user.signup_username_edit_used,
+    }
+    return render(request, 'auth/verify_email.html', ctx)
+
+
+@require_http_methods(['POST'])
+def resend_verification_email_view(request):
+    purge_expired_unverified_users(request)
+    user = _get_pending_verification_user(request)
+    if not user:
+        messages.error(request, 'No pending verification. Register again.')
+        return redirect('auth:register')
+    send_max = int(getattr(settings, 'EMAIL_VERIFICATION_SEND_MAX', 5))
+    timing = _verify_flow_timing(user)
+    if user.email_verification_send_count >= send_max:
+        messages.error(
+            request,
+            f'You have used all {send_max} verification emails for this sign-up. '
+            'Change your email below if the address was wrong, or start over from registration.',
+        )
+        return redirect('auth:verify-email')
+    if not timing['can_resend_code']:
+        messages.warning(
+            request,
+            f'Please wait {timing["resend_cooldown_seconds"]} seconds before requesting another code.',
+        )
+        return redirect('auth:verify-email')
+    code = issue_new_code(user)
+    try:
+        send_verification_email(user=user, code=code)
+        user.email_verification_send_count += 1
+        user.save(update_fields=['email_verification_send_count'])
+        messages.success(request, 'A new verification code was sent to your email.')
+    except Exception:
+        messages.error(
+            request,
+            'Could not send email. Confirm EMAIL_HOST / EMAIL_HOST_USER / password in your environment.',
+        )
+    return redirect('auth:verify-email')
+
+
+@require_http_methods(['POST'])
+def verify_change_email_view(request):
+    purge_expired_unverified_users(request)
+    user = _get_pending_verification_user(request)
+    if not user:
+        messages.error(request, 'No pending verification. Register again.')
+        return redirect('auth:register')
+    timing = _verify_flow_timing(user)
+    if not timing['can_change_email_now']:
+        messages.warning(
+            request,
+            'You can change your email again in '
+            f'{timing["email_change_cooldown_seconds"]} seconds.',
+        )
+        return redirect('auth:verify-email')
+
+    form = PendingSignupChangeEmailForm(request.POST, current_user=user)
+    if not form.is_valid():
+        err = '; '.join(str(e) for e in form.errors.get('email', [])) or 'Check the email address.'
+        messages.error(request, err)
+        return redirect('auth:verify-email')
+
+    new_email = form.cleaned_data['email'].strip()
+    fp_raw = (request.POST.get('client_fingerprint') or '')[:2000]
+    block_msg, _burst = check_registration_allowed(
+        request,
+        email=new_email,
+        client_fingerprint=fp_raw,
+        apply_velocity_and_device_checks=False,
+    )
+    if block_msg:
+        messages.error(request, user_visible_registration_block_message(block_msg))
+        return redirect('auth:verify-email')
+
+    user.email = new_email
+    user.pending_signup_email_changed_at = timezone.now()
+    user.email_verification_send_count = 0
+    user.save(
+        update_fields=['email', 'pending_signup_email_changed_at', 'email_verification_send_count']
+    )
+    code = issue_new_code(user)
+    try:
+        send_verification_email(user=user, code=code)
+        user.email_verification_send_count = 1
+        user.save(update_fields=['email_verification_send_count'])
+        messages.success(request, 'Email updated. We sent a new verification code.')
+    except Exception:
+        messages.error(
+            request,
+            'Email saved but we could not send mail. Check EMAIL_* settings and use Resend.',
+        )
+    return redirect('auth:verify-email')
+
+
+@require_http_methods(['POST'])
+def verify_change_username_view(request):
+    purge_expired_unverified_users(request)
+    user = _get_pending_verification_user(request)
+    if not user:
+        messages.error(request, 'No pending verification. Register again.')
+        return redirect('auth:register')
+    if user.signup_username_edit_used:
+        messages.error(request, 'You can only change your username once on this page.')
+        return redirect('auth:verify-email')
+
+    form = PendingSignupChangeUsernameForm(request.POST, current_user=user)
+    if not form.is_valid():
+        err = '; '.join(str(e) for e in form.errors.get('username', [])) or 'Check the username.'
+        messages.error(request, err)
+        return redirect('auth:verify-email')
+
+    user.username = form.cleaned_data['username']
+    user.signup_username_edit_used = True
+    user.save(update_fields=['username', 'signup_username_edit_used'])
+    messages.success(request, 'Username updated. Use it to sign in after you verify.')
+    return redirect('auth:verify-email')
+
 
 def login_view(request):
     """User login"""

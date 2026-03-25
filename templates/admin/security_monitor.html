@@ -6,36 +6,36 @@
 <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-2">
     <div>
         <h1 class="page-title mb-1">Security &amp; registration monitor</h1>
-        <p class="text-muted small mb-0">Sign-up attempts only — <strong>passwords are never stored</strong> (hashed in <code>User</code> only). Use filters to investigate IPs, device class, and outcomes.</p>
+        <p class="text-muted small mb-0">Sign-up attempts that matter for abuse review (blocked, form errors, completed signups). <strong>Pending email OTP</strong> rows are omitted until the user verifies and is active. Passwords are never stored here (hashed on <code>User</code> only).</p>
     </div>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-2">
+<div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4">
+    <div class="col">
         <div class="card h-100"><div class="card-body py-3 text-center">
             <div class="fs-4 fw-semibold">{{ stats.total }}</div>
             <div class="small text-muted">Attempts ({{ days }}d)</div>
         </div></div>
     </div>
-    <div class="col-6 col-md-2">
+    <div class="col">
         <div class="card h-100 border-danger border-opacity-25"><div class="card-body py-3 text-center">
             <div class="fs-4 fw-semibold text-danger">{{ stats.blocked }}</div>
             <div class="small text-muted">Blocked</div>
         </div></div>
     </div>
-    <div class="col-6 col-md-2">
+    <div class="col">
         <div class="card h-100 border-success border-opacity-25"><div class="card-body py-3 text-center">
             <div class="fs-4 fw-semibold text-success">{{ stats.success }}</div>
-            <div class="small text-muted">Success</div>
+            <div class="small text-muted">Verified / active</div>
         </div></div>
     </div>
-    <div class="col-6 col-md-2">
+    <div class="col">
         <div class="card h-100 border-warning border-opacity-25"><div class="card-body py-3 text-center">
             <div class="fs-4 fw-semibold text-warning">{{ stats.failed_val }}</div>
             <div class="small text-muted">Form errors</div>
         </div></div>
     </div>
-    <div class="col-6 col-md-2">
+    <div class="col">
         <div class="card h-100"><div class="card-body py-3 text-center">
             <div class="fs-4 fw-semibold">{{ unique_ips }}</div>
             <div class="small text-muted">Distinct IPs</div>
@@ -177,6 +177,7 @@
                         <td>
                             {% if row.outcome == 'blocked' %}<span class="badge bg-danger">blocked</span>
                             {% elif row.outcome == 'success' %}<span class="badge bg-success">success</span>
+                            {% elif row.outcome == 'pending_verification' %}<span class="badge bg-info text-dark">pending</span>
                             {% else %}<span class="badge bg-warning text-dark">{{ row.outcome }}</span>{% endif %}
                         </td>
                         <td><span class="badge bg-secondary">{{ row.device_class|default:"—" }}</span></td>
@@ -217,5 +218,5 @@
     {% endif %}
 </div>
 
-<p class="small text-muted mt-3 mb-0">Hover truncated User-Agent to see full string. Django Admin → <em>Registration attempts</em> for read-only row detail.</p>
+<p class="small text-muted mt-3 mb-0">Hover truncated User-Agent to see full string. “Pending email verification” rows (OTP not yet confirmed) still exist in Django Admin → <em>Registration attempts</em> for full audit.</p>
 {% endblock %}

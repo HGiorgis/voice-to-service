@@ -16,6 +16,11 @@ class User(AbstractUser):
         help_text='Set when the user signs in with Google or completes email verification.',
     )
 
+    # Password registration: OTP sent before account is activated
+    email_verification_code_hash = models.CharField(max_length=128, blank=True)
+    email_verification_sent_at = models.DateTimeField(null=True, blank=True)
+    email_verification_expires_at = models.DateTimeField(null=True, blank=True)
+
     # Admin suspension (checked on every session + API key use)
     is_blocked = models.BooleanField(default=False, db_index=True)
     blocked_reason = models.TextField(blank=True)
@@ -28,6 +33,21 @@ class User(AbstractUser):
     suspicious_registration_flag = models.BooleanField(
         default=False,
         help_text='Raised when disposable email or abuse heuristics matched.',
+    )
+
+    # Password signup pending verification (verify-email page)
+    signup_username_edit_used = models.BooleanField(
+        default=False,
+        help_text='After one username change on the verify page, further edits are disabled.',
+    )
+    email_verification_send_count = models.PositiveSmallIntegerField(
+        default=0,
+        help_text='Successful verification emails sent for the current pending email (max enforced in views).',
+    )
+    pending_signup_email_changed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Last time the user changed email on the verify page (cooldown between changes).',
     )
 
     # Google OAuth subject (unique when set)

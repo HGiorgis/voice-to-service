@@ -25,10 +25,63 @@ from apps.authentication.models import (
 
 logger = logging.getLogger(__name__)
 
-# Shown to end users for blocked signups (web, OAuth). Staff-facing detail stays in logs / RegistrationAttempt.
+# Last-resort when reason is unknown (do not use for specific blocked:* codes below).
 PUBLIC_REGISTRATION_DENIED_MESSAGE = (
-    'Registration cannot be completed. If you already have an account, please sign in.'
+    'We could not complete sign-up. If you already have an account, please sign in.'
 )
+
+PUBLIC_DISPOSABLE_EMAIL_DENIED_MESSAGE = (
+    'That email provider is not accepted. Please use a permanent email address you control.'
+)
+
+PUBLIC_GMAIL_ONLY_SIGNUP_MESSAGE = (
+    'This sign-up option only accepts Gmail addresses (@gmail.com). Use a Gmail account or sign in with Google.'
+)
+
+# User-facing: specific enough to act on, without naming IP/browser/fingerprint mechanics.
+PUBLIC_SIGNUP_NETWORK_BLOCKED_USER_MESSAGE = (
+    'New registrations are not available from your connection right now. Try again later, or sign in if you already have an account.'
+)
+PUBLIC_SIGNUP_TOO_MANY_VERIFIED_ACCOUNTS_MESSAGE = (
+    'Too many verified accounts were recently created from this connection. Try again later or sign in with an existing account.'
+)
+PUBLIC_SIGNUP_BROWSER_ALREADY_ACTIVE_MESSAGE = (
+    'An account is already active in this browser. Sign in, or use another trusted device or private window to create a new account.'
+)
+PUBLIC_SIGNUP_COOLDOWN_MESSAGE = (
+    'Too many sign-up attempts in a short time. Please wait a while before trying again.'
+)
+PUBLIC_SIGNUP_VELOCITY_LIMIT_MESSAGE = (
+    'Sign-up is limited right now because of recent activity. Please wait and try again, or sign in.'
+)
+
+
+def user_visible_registration_block_message(block_reason: str) -> str:
+    """
+    Map internal reasons from check_registration_allowed to user-facing copy.
+    Do not expose IPs, fingerprints, or browser-tracking internals.
+    """
+    r = (block_reason or '').strip()
+    if not r:
+        return PUBLIC_REGISTRATION_DENIED_MESSAGE
+    if r.startswith('blocked: disposable email domain'):
+        return PUBLIC_DISPOSABLE_EMAIL_DENIED_MESSAGE
+    if r.startswith('blocked: password signup gmail-only rule'):
+        return PUBLIC_GMAIL_ONLY_SIGNUP_MESSAGE
+    if r.startswith('blocked: max accounts per IP in lookback'):
+        return PUBLIC_SIGNUP_TOO_MANY_VERIFIED_ACCOUNTS_MESSAGE
+    if r.startswith('blocked: device cookie already linked to an account'):
+        return PUBLIC_SIGNUP_BROWSER_ALREADY_ACTIVE_MESSAGE
+    if r.startswith('blocked: fingerprint reuse in lookback'):
+        return PUBLIC_SIGNUP_COOLDOWN_MESSAGE
+    if r.startswith('blocked: rapid signup limit (IP)') or r.startswith(
+        'blocked: rapid signup limit (fingerprint)'
+    ):
+        return PUBLIC_SIGNUP_VELOCITY_LIMIT_MESSAGE
+    if r.startswith('blocked:'):
+        return PUBLIC_SIGNUP_COOLDOWN_MESSAGE
+    # IP allow/deny list (manual or automatic) — never echo raw reasons
+    return PUBLIC_SIGNUP_NETWORK_BLOCKED_USER_MESSAGE
 
 DEVICE_COOKIE_NAME = getattr(settings, 'VTS_DEVICE_COOKIE_NAME', 'vts_did')
 DEVICE_SIGN_SALT = 'vts-device-cookie-v1'
@@ -80,10 +133,16 @@ def check_registration_allowed(
     email: str,
     client_fingerprint: str,
     password_signup: bool = True,
+    apply_velocity_and_device_checks: bool = True,
 ) -> Tuple[Optional[str], bool]:
     """
-    Returns (internal_reason_for_staff_logs_or_None, should_flag_ip_for_auto_block).
-    Never use the first value as user-visible copy; use PUBLIC_REGISTRATION_DENIED_MESSAGE.
+    Returns (reason_for_logs_and_user_mapping_or_None, should_flag_ip_for_auto_block).
+    For toasts, pass the first value through user_visible_registration_block_message().
+
+    When apply_velocity_and_device_checks is False, only policy + explicit IP list run
+    (e.g. changing email on the verify page). Device / same-IP / fingerprint / rapid
+    windows apply only to **verified, active** accounts so pending OTP signups do not
+    block new registrations from the same browser or network.
     """
     cfg = AntiAbuseSettings.get_settings()
     if not cfg.master_enable:
@@ -109,6 +168,13 @@ def check_registration_allowed(
     ):
         return ('blocked: password signup gmail-only rule', False)
 
+    if not apply_velocity_and_device_checks:
+        return None, False
+
+    from apps.users.models import User
+
+    verified_active = User.objects.filter(is_verified=True, is_active=True)
+
     if cfg.device_tracker_cookie_enabled:
         raw_cookie = request.COOKIES.get(DEVICE_COOKIE_NAME)
         if raw_cookie:
@@ -116,13 +182,8 @@ def check_registration_allowed(
                 did = uuid.UUID(signing.Signer(salt=DEVICE_SIGN_SALT).unsign(raw_cookie))
             except (signing.BadSignature, ValueError, TypeError):
                 did = None
-            if did:
-                from apps.users.models import User
-
-                if User.objects.filter(registration_device_id=did).exists():
-                    return ('blocked: device cookie already linked to an account', False)
-
-    from apps.users.models import User
+            if did and verified_active.filter(registration_device_id=did).exists():
+                return ('blocked: device cookie already linked to an account', False)
 
     now = timezone.now()
 
@@ -130,13 +191,13 @@ def check_registration_allowed(
         since = now - timedelta(hours=cfg.same_ip_lookback_hours)
         max_ip = cfg.max_accounts_per_ip_in_lookback
         if max_ip > 0:
-            n = User.objects.filter(registration_ip=ip, date_joined__gte=since).count()
+            n = verified_active.filter(registration_ip=ip, date_joined__gte=since).count()
             if n >= max_ip:
                 return ('blocked: max accounts per IP in lookback', True)
 
     if cfg.block_same_fingerprint and fph:
         since = now - timedelta(hours=cfg.fingerprint_lookback_hours)
-        n = User.objects.filter(
+        n = verified_active.filter(
             registration_fingerprint_hash=fph,
             date_joined__gte=since,
         ).count()
@@ -214,10 +275,11 @@ def maybe_auto_block_ip_after_burst(ip: str) -> None:
         return
     now = timezone.now()
     since = now - timedelta(minutes=cfg.suspicious_burst_window_minutes)
-    n = RegistrationAttempt.objects.filter(
-        ip_address=ip,
-        created_at__gte=since,
-    ).count()
+    n = (
+        RegistrationAttempt.objects.filter(ip_address=ip, created_at__gte=since)
+        .exclude(outcome=RegistrationAttempt.Outcome.PENDING_VERIFICATION)
+        .count()
+    )
     if n < cfg.suspicious_burst_registration_count:
         return
     if BlockedIPAddress.objects.filter(

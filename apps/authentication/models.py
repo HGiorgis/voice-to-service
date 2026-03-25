@@ -191,6 +191,7 @@ class RegistrationAttempt(models.Model):
         BLOCKED = 'blocked', 'Blocked'
         SUCCESS = 'success', 'Success'
         FAILED_VALIDATION = 'failed_validation', 'Failed validation'
+        PENDING_VERIFICATION = 'pending_verification', 'Pending email verification'
 
     ip_address = models.CharField(max_length=45, db_index=True)
     fingerprint_hash = models.CharField(max_length=64, blank=True, db_index=True)
@@ -229,6 +230,15 @@ class RegistrationAttempt(models.Model):
             models.Index(fields=['fingerprint_hash', '-created_at']),
             models.Index(fields=['device_class', '-created_at']),
         ]
+
+    @classmethod
+    def for_abuse_monitor(cls):
+        """
+        Rows staff anti-abuse dashboards should show: blocked, validation failures,
+        and completed signups (success). Excludes OTP-sent / pre-login state — those
+        users are not active yet and should not appear as abuse signals.
+        """
+        return cls.objects.exclude(outcome=cls.Outcome.PENDING_VERIFICATION)
 
 
 class APIKeyLog(models.Model):

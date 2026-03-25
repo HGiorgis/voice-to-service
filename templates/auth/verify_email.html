@@ -1,0 +1,147 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/voice-to-service-logo.svg' %}">
+    <title>Verify email — Voice To Service</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/voice-to-service-theme.css' %}">
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-container">
+            <div class="auth-logo">
+                <a href="{% url 'auth:login' %}">
+                    <img src="{% static 'images/voice-to-service-logo.svg' %}" alt="" width="42" height="42" class="logo-icon-img">
+                    <span class="logo-text">Voice To Service</span>
+                </a>
+            </div>
+            <h1 class="auth-title">Verify your email</h1>
+            <p class="auth-subtitle">We sent a 6-digit code to <strong dir="ltr">{{ verify_email }}</strong>. Enter it below with your name.</p>
+            <div class="auth-card">
+                <p class="small text-muted mb-2">
+                    {% if verification_send_max %}
+                    Verification emails sent: {{ verify_timing.verification_sends_done }} / {{ verification_send_max }}.
+                    {% endif %}
+                </p>
+                {% if can_change_username %}
+                <div class="border rounded p-3 mb-3 bg-light bg-opacity-50">
+                    <div class="fw-semibold small mb-2">Wrong username?</div>
+                    <p class="small text-muted mb-2">You can fix it <strong>once</strong> before verifying.</p>
+                    <form method="post" action="{% url 'auth:verify-email-change-username' %}">
+                        {% csrf_token %}
+                        {{ change_username_form.username }}
+                        {% if change_username_form.username.errors %}
+                        <div class="text-danger small mt-1">{{ change_username_form.username.errors }}</div>
+                        {% endif %}
+                        <button type="submit" class="btn btn-sm btn-outline-dark mt-2">Update username</button>
+                    </form>
+                </div>
+                {% endif %}
+                <div class="border rounded p-3 mb-3 bg-light bg-opacity-50">
+                    <div class="fw-semibold small mb-2">Wrong email address?</div>
+                    {% if not verify_timing.can_change_email_now %}
+                    <p class="small text-warning mb-2">You can change your email again in {{ verify_timing.email_change_cooldown_seconds }}s.</p>
+                    {% else %}
+                    <form method="post" action="{% url 'auth:verify-email-change-email' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="client_fingerprint" class="vts-verify-fp" value="">
+                        {{ change_email_form.email }}
+                        {% if change_email_form.email.errors %}
+                        <div class="text-danger small mt-1">{{ change_email_form.email.errors }}</div>
+                        {% endif %}
+                        <button type="submit" class="btn btn-sm btn-outline-dark mt-2">Update email &amp; resend code</button>
+                    </form>
+                    {% endif %}
+                </div>
+                <form method="post" action="{% url 'auth:verify-email' %}" id="vts-verify-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="client_fingerprint" id="client_fingerprint" value="">
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger small">{{ form.non_field_errors }}</div>
+                    {% endif %}
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="id_first_name">First name</label>
+                            {{ form.first_name }}
+                            {% if form.first_name.errors %}<div class="text-danger small">{{ form.first_name.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="id_last_name">Last name</label>
+                            {{ form.last_name }}
+                            {% if form.last_name.errors %}<div class="text-danger small">{{ form.last_name.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="id_code">Verification code</label>
+                        {{ form.code }}
+                        {% if form.code.errors %}<div class="text-danger small">{{ form.code.errors }}</div>{% endif %}
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Verify and continue</button>
+                </form>
+                <form method="post" action="{% url 'auth:verify-email-resend' %}" class="mt-3" id="vts-resend-form">
+                    {% csrf_token %}
+                    {% if verify_timing.verification_sends_remaining <= 0 %}
+                    <button type="button" class="btn btn-outline-secondary btn-sm w-100" disabled
+                        title="Use “Wrong email” above or start over">No resends left (max {{ verification_send_max }})</button>
+                    {% elif verify_timing.can_resend_code %}
+                    <button type="submit" class="btn btn-outline-secondary btn-sm w-100" id="vts-resend-btn">Resend code</button>
+                    {% else %}
+                    <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="vts-resend-btn" disabled
+                        data-cooldown="{{ verify_timing.resend_cooldown_seconds }}">
+                        Resend code (wait {{ verify_timing.resend_cooldown_seconds }}s)
+                    </button>
+                    {% endif %}
+                </form>
+                <div class="auth-divider"></div>
+                <p class="auth-footer mb-0">
+                    Wrong address? <a href="{% url 'auth:register' %}">Start over</a> · <a href="{% url 'auth:login' %}">Sign in</a>
+                </p>
+            </div>
+        </div>
+    </div>
+    <div id="toast-container" class="toast-container"></div>
+    {% if messages %}
+    <div id="django-messages-toasts" style="display:none" aria-hidden="true">
+        {% for message in messages %}
+        <div data-tag="{{ message.tags }}" data-message="{{ message|escape }}"></div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/main.js' %}"></script>
+    <script>
+    (function () {
+        var s = [navigator.userAgent, screen.width, screen.height, screen.colorDepth, new Date().getTimezoneOffset(), navigator.language || '', navigator.hardwareConcurrency || 0].join('|');
+        var h = 0;
+        for (var i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i) | 0;
+        var fp = 'fp1:' + h.toString(16) + ':' + (navigator.deviceMemory || 0);
+        var el = document.getElementById('client_fingerprint');
+        if (el) el.value = fp;
+        document.querySelectorAll('.vts-verify-fp').forEach(function (inp) { inp.value = fp; });
+        var btn = document.getElementById('vts-resend-btn');
+        if (btn && btn.dataset.cooldown) {
+            var left = parseInt(btn.dataset.cooldown, 10) || 0;
+            var tick = function () {
+                left--;
+                if (left <= 0) {
+                    btn.disabled = false;
+                    btn.textContent = 'Resend code';
+                    var form = document.getElementById('vts-resend-form');
+                    if (form) form.querySelector('button').type = 'submit';
+                    return;
+                }
+                btn.textContent = 'Resend code (wait ' + left + 's)';
+                setTimeout(tick, 1000);
+            };
+            setTimeout(tick, 1000);
+        }
+    })();
+    </script>
+</body>
+</html>

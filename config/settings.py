@@ -258,3 +258,28 @@ CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+
+# Public site URL (links inside verification emails)
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:8000').rstrip('/')
+
+# Email (OTP verification). If EMAIL_HOST_USER is empty, mail is printed to the console.
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('1', 'true', 'yes')
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False').lower() in ('1', 'true', 'yes')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@voice-to-service.com')
+
+if EMAIL_HOST_USER:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+EMAIL_VERIFICATION_EXPIRE_MINUTES = int(os.environ.get('EMAIL_VERIFICATION_EXPIRE_MINUTES', '15'))
+EMAIL_VERIFICATION_RESEND_SECONDS = int(os.environ.get('EMAIL_VERIFICATION_RESEND_SECONDS', '60'))
+EMAIL_VERIFICATION_SEND_MAX = int(os.environ.get('EMAIL_VERIFICATION_SEND_MAX', '5'))
+PENDING_SIGNUP_EMAIL_CHANGE_COOLDOWN_SECONDS = int(
+    os.environ.get('PENDING_SIGNUP_EMAIL_CHANGE_COOLDOWN_SECONDS', '120')
+)
+UNVERIFIED_SIGNUP_EXPIRE_HOURS = int(os.environ.get('UNVERIFIED_SIGNUP_EXPIRE_HOURS', '48'))

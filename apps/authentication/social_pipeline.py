@@ -4,13 +4,13 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.authentication.antiabuse import (
-    PUBLIC_REGISTRATION_DENIED_MESSAGE,
     check_registration_allowed,
     get_client_ip,
     hash_fingerprint,
     log_registration_attempt,
     maybe_auto_block_ip_after_burst,
     persist_device_id_on_user,
+    user_visible_registration_block_message,
 )
 from apps.authentication.device_info import classify_request
 from apps.authentication.models import AntiAbuseSettings, RegistrationAttempt
@@ -74,7 +74,7 @@ def enforce_oauth_registration_rules(strategy, details, backend, user=None, *arg
             detail=f'oauth_signup {block_internal}'[:500],
         )
         maybe_auto_block_ip_after_burst(ip)
-        messages.error(req, PUBLIC_REGISTRATION_DENIED_MESSAGE)
+        messages.error(req, user_visible_registration_block_message(block_internal))
         url = backend.setting('LOGIN_ERROR_URL') or reverse('auth:login')
         return strategy.redirect(url)
     return {}

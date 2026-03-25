@@ -355,10 +355,17 @@ def security_monitor(request):
     ip_q = (request.GET.get('ip') or '').strip()[:45]
     device_q = (request.GET.get('device') or '').strip()
 
-    base = RegistrationAttempt.objects.filter(created_at__gte=since)
+    # Mid-flow password signup (OTP emailed) is not an abuse signal until verified / logged in.
+    base = RegistrationAttempt.for_abuse_monitor().filter(created_at__gte=since)
     qs = base.select_related('user').order_by('-created_at')
-    _outcomes = {c.value for c in RegistrationAttempt.Outcome}
-    if outcome_filter in _outcomes:
+    _outcomes_abuse = {
+        c.value
+        for c in RegistrationAttempt.Outcome
+        if c.value != RegistrationAttempt.Outcome.PENDING_VERIFICATION
+    }
+    if outcome_filter == RegistrationAttempt.Outcome.PENDING_VERIFICATION:
+        outcome_filter = ''
+    if outcome_filter in _outcomes_abuse:
         qs = qs.filter(outcome=outcome_filter)
     if ip_q:
         qs = qs.filter(ip_address__icontains=ip_q)
@@ -411,7 +418,11 @@ def security_monitor(request):
             'outcome_filter': outcome_filter,
             'ip_q': ip_q,
             'device_q': device_q,
-            'outcome_choices': RegistrationAttempt.Outcome.choices,
+            'outcome_choices': [
+                c
+                for c in RegistrationAttempt.Outcome.choices
+                if c[0] != RegistrationAttempt.Outcome.PENDING_VERIFICATION
+            ],
         },
     )
 

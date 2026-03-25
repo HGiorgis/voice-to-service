@@ -1,319 +1,56 @@
-"""Known disposable / temporary email domains (subset; extend as needed)."""
+"""Disposable email domains: primary lists from data/*.conf (allowlist overrides blocklist)."""
+
+from __future__ import annotations
 
 import re
+import threading
+from pathlib import Path
+from typing import FrozenSet
 
-_DISPOSABLE = frozenset(
-    d.lower()
-    for d in (
-        'mailinator.com',
-        'guerrillamail.com',
-        'guerrillamail.org',
-        'sharklasers.com',
-        'yopmail.com',
-        'yopmail.fr',
-        'throwaway.email',
-        'tempmail.com',
-        'temp-mail.org',
-        'tempmail.net',
-        'dispostable.com',
-        'trashmail.com',
-        'getnada.com',
-        'maildrop.cc',
-        '10minutemail.com',
-        '10minutemail.net',
-        'fakeinbox.com',
-        'mohmal.com',
-        'emailondeck.com',
-        'burnermail.io',
-        'tempail.com',
-        'mailnesia.com',
-        'mailcatch.com',
-        'spam4.me',
-        'grr.la',
-        'mailnull.com',
-        'mailforspam.com',
-        'spamgourmet.com',
-        'trashmail.de',
-        'mailinator.net',
-        'mailinator2.com',
-        'sogetthis.com',
-        'mailinater.com',
-        'notmailinator.com',
-        'mailtothis.com',
-        'mailincubator.com',
-        'chammy.info',
-        'pokemail.net',
-        'spam4.me',
-        'trashmail.ws',
-        'tmpmail.net',
-        'tmpmail.org',
-        'emailfake.com',
-        'crazymailing.com',
-        'dropmail.me',
-        'harakirimail.com',
-        'mailcatch.com',
-        'mintemail.com',
-        'mytrashmail.com',
-        'nwytg.net',
-        'objectmail.com',
-        'proxymail.eu',
-        'rcpt.at',
-        'wegwerfmail.de',
-        'wegwerfmail.net',
-        'wegwerfmail.org',
-        'armyspy.com',
-        'cuvox.de',
-        'dayrep.com',
-        'einrot.com',
-        'fleckens.hu',
-        'gustr.com',
-        'jourrapide.com',
-        'rhyta.com',
-        'superrito.com',
-        'teleworm.us',
-        'trash-mail.com',
-        'trillianpro.com',
-        'tyldd.com',
-        'discard.email',
-        'discardmail.com',
-        'discardmail.de',
-        'disposablemail.com',
-        'disposableaddress.com',
-        'disposableinbox.com',
-        'mailf5.com',
-        'mailhazard.com',
-        'mailhz.me',
-        'mailop.com',
-        'mailsac.com',
-        'mailscrap.com',
-        'mailtemp.info',
-        'moakt.com',
-        'mox.do',
-        'nobugmail.com',
-        'nobuma.com',
-        'nonspammer.com',
-        'nospamfor.us',
-        'nowmymail.com',
-        'ntlhelp.net',
-        'nurfuerspam.de',
-        'objectmail.com',
-        'oneoffmail.com',
-        'oopi.org',
-        'opayq.com',
-        'ordinaryamerican.net',
-        'otherinbox.com',
-        'ovpn.to',
-        'owlpic.com',
-        'pancakemail.com',
-        'paplease.com',
-        'pcusers.otherinbox.com',
-        'pepbot.com',
-        'pfui.ru',
-        'pimpedupmyspace.com',
-        'pjkh.com',
-        'plexolan.de',
-        'poczta.onet.pl',
-        'politikerclub.de',
-        'poofy.org',
-        'pookmail.com',
-        'privacy.net',
-        'privatdemail.net',
-        'proxymail.eu',
-        'prtnx.com',
-        'prtz.eu',
-        'putthisinyourspamdatabase.com',
-        'pwrby.com',
-        'quickinbox.com',
-        'rcpt.at',
-        'recode.me',
-        'recursor.net',
-        'recyclemail.dk',
-        'regbypass.com',
-        'regbypass.comsafe-mail.net',
-        'rejectmail.com',
-        'rklips.com',
-        'rmqkr.net',
-        'rppkn.com',
-        'rtrtr.com',
-        's0ny.net',
-        'safe-mail.net',
-        'safersignup.de',
-        'safetymail.info',
-        'safetypost.de',
-        'sandelf.de',
-        'saynotospams.com',
-        'schafmail.de',
-        'schrott-email.de',
-        'secretemail.de',
-        'secure-mail.biz',
-        'selfdestructingmail.com',
-        'sendspamhere.de',
-        'senseless-entertainment.com',
-        'services391.com',
-        'sharedmailbox.org',
-        'sharklasers.com',
-        'shieldedmail.com',
-        'shiftmail.com',
-        'shitmail.me',
-        'shitware.nl',
-        'shmeriously.com',
-        'shortmail.net',
-        'sibmail.com',
-        'sinnlos-mail.de',
-        'slapsfromlastnight.com',
-        'slaskpost.se',
-        'slipry.net',
-        'slopsbox.com',
-        'slushmail.com',
-        'smashmail.de',
-        'smellfear.com',
-        'smellrear.com',
-        'snakemail.com',
-        'sneakemail.com',
-        'snkmail.com',
-        'sofimail.com',
-        'sofort-mail.de',
-        'sogetthis.com',
-        'soodonims.com',
-        'spam.la',
-        'spam.su',
-        'spam4.me',
-        'spamavert.com',
-        'spambob.com',
-        'spambob.net',
-        'spambob.org',
-        'spambog.com',
-        'spambog.de',
-        'spambog.ru',
-        'spambox.info',
-        'spambox.us',
-        'spamday.com',
-        'spamex.com',
-        'spamfree.eu',
-        'spamgourmet.com',
-        'spamherelots.com',
-        'spamhereplease.com',
-        'spamhole.com',
-        'spamify.com',
-        'spaminator.de',
-        'spamkill.info',
-        'spaml.com',
-        'spaml.de',
-        'spammotel.com',
-        'spamobox.com',
-        'spamspot.com',
-        'spamstack.net',
-        'spamthis.co.uk',
-        'spamthisplease.com',
-        'speed.1s.fr',
-        'spoofmail.de',
-        'stuffmail.de',
-        'super-auswahl.de',
-        'supergreatmail.com',
-        'supermailer.jp',
-        'superrito.com',
-        'superstachel.de',
-        'suremail.info',
-        'tagyourself.com',
-        'talkinator.com',
-        'teewars.org',
-        'teleworm.com',
-        'teleworm.us',
-        'tempalias.com',
-        'tempe-mail.com',
-        'tempemail.biz',
-        'tempemail.com',
-        'tempinbox.co.uk',
-        'tempinbox.com',
-        'tempmail.it',
-        'tempmail2.com',
-        'tempomail.fr',
-        'temporarily.de',
-        'temporarioemail.com.br',
-        'temporaryemail.net',
-        'temporaryforwarding.com',
-        'temporaryinbox.com',
-        'temporarymailaddress.com',
-        'tempthe.net',
-        'thanksnospam.info',
-        'thankyou2010.com',
-        'thisisnotmyrealemail.com',
-        'throwam.com',
-        'tilien.com',
-        'tmail.ws',
-        'tmailinator.com',
-        'toiea.com',
-        'toomail.biz',
-        'topranklist.de',
-        'tradermail.info',
-        'trash-amil.com',
-        'trash-mail.at',
-        'trash-mail.com',
-        'trash-mail.de',
-        'trash2009.com',
-        'trashemail.de',
-        'trashmail.at',
-        'trashmail.com',
-        'trashmail.de',
-        'trashmail.me',
-        'trashmail.net',
-        'trashmail.org',
-        'trashmail.ws',
-        'trashmailer.com',
-        'trashymail.com',
-        'trashymail.net',
-        'trillianpro.com',
-        'turual.com',
-        'twinmail.de',
-        'tyldd.com',
-        'uggsrock.com',
-        'umail.net',
-        'upliftnow.com',
-        'uplipht.com',
-        'uroid.com',
-        'us.af',
-        'venompen.com',
-        'veryrealemail.com',
-        'viditag.com',
-        'viewcastmedia.com',
-        'viewcastmedia.net',
-        'viewcastmedia.org',
-        'webemail.me',
-        'webm4il.info',
-        'wh4f.org',
-        'whyspam.me',
-        'willselfdestruct.com',
-        'winemaven.info',
-        'wronghead.com',
-        'wuzup.net',
-        'wuzupmail.net',
-        'www.e4ivstampk.com',
-        'www.gishpuppy.com',
-        'www.mailinator.com',
-        'wwwnew.eu',
-        'x.ip6.li',
-        'xagloo.com',
-        'xemaps.com',
-        'xents.com',
-        'xmaily.com',
-        'xoxy.net',
-        'yapped.net',
-        'yeah.net',
-        'yep.it',
-        'yogamaven.com',
-        'yopmail.com',
-        'yopmail.fr',
-        'yopmail.net',
-        'yourdomain.com',
-        'ypmail.webnast.de',
-        'z1p.biz',
-        'za.com',
-        'zehnminutenmail.de',
-        'zetmail.com',
-        'zoemail.org',
-        'zomg.info',
-    )
-)
+from django.conf import settings
+
+_lock = threading.Lock()
+_allowlist: FrozenSet[str] | None = None
+_blocklist: FrozenSet[str] | None = None
+
+
+def _data_dir() -> Path:
+    return Path(settings.BASE_DIR) / 'data'
+
+
+def _read_domain_lines(path: Path) -> frozenset[str]:
+    if not path.is_file():
+        return frozenset()
+    out: set[str] = set()
+    try:
+        raw = path.read_text(encoding='utf-8', errors='ignore')
+    except OSError:
+        return frozenset()
+    for line in raw.splitlines():
+        line = line.strip().lower()
+        if not line or line.startswith('#'):
+            continue
+        out.add(line)
+    return frozenset(out)
+
+
+def _load_lists() -> None:
+    global _allowlist, _blocklist
+    with _lock:
+        if _allowlist is not None and _blocklist is not None:
+            return
+        d = _data_dir()
+        _allowlist = _read_domain_lines(d / 'allowlist.conf')
+        _blocklist = _read_domain_lines(d / 'disposable_email_blocklist.conf')
+
+
+def reload_disposable_lists() -> None:
+    """Call after replacing data files at runtime (tests / admin action)."""
+    global _allowlist, _blocklist
+    with _lock:
+        _allowlist = None
+        _blocklist = None
+    _load_lists()
 
 
 def email_domain(email: str) -> str:
@@ -326,13 +63,15 @@ def is_disposable_domain(domain: str) -> bool:
     d = (domain or '').strip().lower()
     if not d:
         return False
-    if d in _DISPOSABLE:
+    _load_lists()
+    assert _allowlist is not None and _blocklist is not None
+    if d in _allowlist:
+        return False
+    if d in _blocklist:
         return True
-    # Subdomain of known disposable root
-    for root in _DISPOSABLE:
+    for root in _blocklist:
         if d.endswith('.' + root):
             return True
-    # Pattern: temp + digits
     if re.match(r'^mail\d*\.', d) and 'temp' in d:
         return True
     return False
