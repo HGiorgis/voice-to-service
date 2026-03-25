@@ -15,6 +15,7 @@ django-storages[s3]
 boto3
 requests
 celery
+social-auth-app-django
 
 # Voice pipeline
 google-cloud-speech
