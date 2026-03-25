@@ -37,6 +37,8 @@ See `.env.example`. Required for full pipeline:
 - `GOOGLE_APPLICATION_CREDENTIALS` — path to GCP service account JSON, **or** `GOOGLE_APPLICATION_CREDENTIALS_B64` (Base64 of that JSON; generate with `python scripts/encode_gcp_credentials_b64.py path/to/key.json`)
 - `GEMINI_API_KEY` — Gemini API key for classification
 
+**Google OAuth on Render:** Render sets `RENDER=true`, which enables `SECURE_PROXY_SSL_HEADER` so Django builds `https://…` OAuth redirect URLs. In Google Cloud Console, add the **https** redirect URI exactly, e.g. `https://your-app.onrender.com/oauth/complete/google-oauth2/`. `redirect_uri_mismatch` with `http://` in the error usually means this header was missing or the Console only lists `https`. You do **not** need Django `Sites` for this.
+
 ## Project layout
 
 - `apps/voice/` — `VoiceProcessingRequest` log model

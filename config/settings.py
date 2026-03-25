@@ -58,7 +58,7 @@ SECRET_KEY = os.environ.get(
 ).strip()
 DEBUG = os.environ.get('DEBUG', 'True').strip().lower() in ('1', 'true', 'yes')
 
-_hosts = os.environ.get('ALLOWED_HOSTS', '*').strip()
+_hosts = (os.environ.get('ALLOWED_HOSTS', '*').strip() or '*')
 ALLOWED_HOSTS = [h.strip() for h in _hosts.split(',') if h.strip()]
 
 # Render (and similar) terminate TLS at the proxy. Without this, request.scheme is "http",
@@ -69,8 +69,6 @@ _behind_tls_proxy = (
 )
 if _behind_tls_proxy:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT = True
-
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
@@ -237,6 +235,9 @@ else:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+SECURE_SSL_REDIRECT = True
 
 
 # CORS settings
