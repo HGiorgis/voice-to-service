@@ -25,6 +25,11 @@ from apps.authentication.models import (
 
 logger = logging.getLogger(__name__)
 
+# Shown to end users for blocked signups (web, OAuth). Staff-facing detail stays in logs / RegistrationAttempt.
+PUBLIC_REGISTRATION_DENIED_MESSAGE = (
+    'Registration cannot be completed. If you already have an account, please sign in.'
+)
+
 DEVICE_COOKIE_NAME = getattr(settings, 'VTS_DEVICE_COOKIE_NAME', 'vts_did')
 DEVICE_SIGN_SALT = 'vts-device-cookie-v1'
 
@@ -74,9 +79,11 @@ def check_registration_allowed(
     *,
     email: str,
     client_fingerprint: str,
+    password_signup: bool = True,
 ) -> Tuple[Optional[str], bool]:
     """
-    Returns (error_message_or_None, should_flag_ip_for_auto_block).
+    Returns (internal_reason_for_staff_logs_or_None, should_flag_ip_for_auto_block).
+    Never use the first value as user-visible copy; use PUBLIC_REGISTRATION_DENIED_MESSAGE.
     """
     cfg = AntiAbuseSettings.get_settings()
     if not cfg.master_enable:
@@ -92,18 +99,15 @@ def check_registration_allowed(
     dom = email_domain(email)
 
     if cfg.block_disposable_email and dom and is_disposable_domain(dom):
-        return (
-            'Temporary or disposable email addresses are not allowed. '
-            'Use a Gmail address or sign in with Google.',
-            True,
-        )
+        return ('blocked: disposable email domain', True)
 
-    if cfg.require_gmail_domain_for_password_signup and dom and not is_gmail_domain(dom):
-        return (
-            'Password registration is limited to Gmail (@gmail.com). '
-            'Use Google sign-in for other providers.',
-            False,
-        )
+    if (
+        password_signup
+        and cfg.require_gmail_domain_for_password_signup
+        and dom
+        and not is_gmail_domain(dom)
+    ):
+        return ('blocked: password signup gmail-only rule', False)
 
     if cfg.device_tracker_cookie_enabled:
         raw_cookie = request.COOKIES.get(DEVICE_COOKIE_NAME)
@@ -116,11 +120,7 @@ def check_registration_allowed(
                 from apps.users.models import User
 
                 if User.objects.filter(registration_device_id=did).exists():
-                    return (
-                        'This browser already registered an account. '
-                        'Log in or use a different browser profile.',
-                        False,
-                    )
+                    return ('blocked: device cookie already linked to an account', False)
 
     from apps.users.models import User
 
@@ -132,11 +132,7 @@ def check_registration_allowed(
         if max_ip > 0:
             n = User.objects.filter(registration_ip=ip, date_joined__gte=since).count()
             if n >= max_ip:
-                return (
-                    'Too many accounts were recently created from this network. '
-                    'Try again later or contact support.',
-                    True,
-                )
+                return ('blocked: max accounts per IP in lookback', True)
 
     if cfg.block_same_fingerprint and fph:
         since = now - timedelta(hours=cfg.fingerprint_lookback_hours)
@@ -145,11 +141,7 @@ def check_registration_allowed(
             date_joined__gte=since,
         ).count()
         if n >= 1:
-            return (
-                'This device fingerprint was already used for a recent registration. '
-                'Sign in with your existing account.',
-                True,
-            )
+            return ('blocked: fingerprint reuse in lookback', True)
 
     if cfg.block_rapid_registration_window:
         rw = now - timedelta(minutes=cfg.rapid_registration_window_minutes)
@@ -160,11 +152,7 @@ def check_registration_allowed(
                 outcome=RegistrationAttempt.Outcome.SUCCESS,
             ).count()
             if attempts_ip >= cfg.max_registrations_per_ip_in_rapid_window:
-                return (
-                    'Multiple accounts were created from this network in a short time. '
-                    'Please wait before registering again.',
-                    True,
-                )
+                return ('blocked: rapid signup limit (IP)', True)
         if fph:
             attempts_fp = RegistrationAttempt.objects.filter(
                 fingerprint_hash=fph,
@@ -172,11 +160,7 @@ def check_registration_allowed(
                 outcome=RegistrationAttempt.Outcome.SUCCESS,
             ).count()
             if attempts_fp >= cfg.max_registrations_per_fingerprint_in_rapid_window:
-                return (
-                    'Multiple accounts were created from this device in a short time. '
-                    'Please wait before registering again.',
-                    True,
-                )
+                return ('blocked: rapid signup limit (fingerprint)', True)
 
     return None, False
 

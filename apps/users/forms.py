@@ -3,6 +3,7 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
+from apps.authentication.antiabuse import PUBLIC_REGISTRATION_DENIED_MESSAGE
 from apps.authentication.disposable_email import email_domain, is_disposable_domain, is_gmail_domain
 from apps.authentication.models import AntiAbuseSettings
 
@@ -46,14 +47,9 @@ class CustomUserCreationForm(UserCreationForm):
             return email
         dom = email_domain(email)
         if cfg.block_disposable_email and dom and is_disposable_domain(dom):
-            raise ValidationError(
-                'Temporary or disposable email addresses are not allowed. '
-                'Use Gmail or sign in with Google.'
-            )
+            raise ValidationError(PUBLIC_REGISTRATION_DENIED_MESSAGE)
         if cfg.require_gmail_domain_for_password_signup and dom and not is_gmail_domain(dom):
-            raise ValidationError(
-                'Password sign-up requires a Gmail address (@gmail.com), or use Google sign-in.'
-            )
+            raise ValidationError(PUBLIC_REGISTRATION_DENIED_MESSAGE)
         return email
 
     def save(self, commit=True):

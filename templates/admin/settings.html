@@ -73,7 +73,7 @@
         <div class="card mb-4 border-primary">
             <div class="card-header bg-light">Anti-abuse &amp; signup controls</div>
             <div class="card-body">
-                <p class="small text-muted">Toggle each defense for password sign-up. Google sign-in still respects <strong>blocked IPs</strong> and <strong>admin suspension</strong>. Manual IP blocks: Django Admin → <em>Authentication → Blocked IP addresses</em>. Signup audit log: <em>Registration attempts</em>.</p>
+                <p class="small text-muted">Password and (optionally) new Google sign-ups share these limits. Google always respects <strong>blocked IPs</strong> and <strong>admin suspension</strong>. Manual IP blocks: Django Admin → <em>Authentication → Blocked IP addresses</em>. Audit: <em>Registration attempts</em> and <a href="{% url 'admin:security-monitor' %}">Security monitor</a>.</p>
                 <form method="post">
                     {% csrf_token %}
                     <input type="hidden" name="form_type" value="anti_abuse">
@@ -95,6 +95,10 @@
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" name="ab_require_gmail_domain" id="ab_require_gmail_domain" {% if antiabuse.require_gmail_domain_for_password_signup %}checked{% endif %}>
                         <label class="form-check-label" for="ab_require_gmail_domain">Password signup: Gmail only (@gmail.com / @googlemail.com)</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="ab_oauth_signup_antiabuse" id="ab_oauth_signup_antiabuse" {% if antiabuse.oauth_signup_antiabuse_enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="ab_oauth_signup_antiabuse">New Google sign-ups: apply same anti-abuse as password registration (IP, fingerprint, disposable email, rapid window, device cookie)</label>
                     </div>
 
                     <h6 class="text-secondary small text-uppercase">IP &amp; fingerprint</h6>

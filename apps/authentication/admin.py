@@ -9,7 +9,12 @@ from apps.authentication.models import (
 
 @admin.register(AntiAbuseSettings)
 class AntiAbuseSettingsAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'master_enable', 'updated_at')
+    list_display = (
+        '__str__',
+        'master_enable',
+        'oauth_signup_antiabuse_enabled',
+        'updated_at',
+    )
 
     def has_add_permission(self, request):
         return not AntiAbuseSettings.objects.exists()

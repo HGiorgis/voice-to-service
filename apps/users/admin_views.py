@@ -250,6 +250,9 @@ def admin_settings(request):
             ab.require_gmail_domain_for_password_signup = (
                 request.POST.get('ab_require_gmail_domain') == 'on'
             )
+            ab.oauth_signup_antiabuse_enabled = (
+                request.POST.get('ab_oauth_signup_antiabuse') == 'on'
+            )
             ab.block_same_ip_registration = request.POST.get('ab_block_same_ip') == 'on'
             ab.same_ip_lookback_hours = _safe_uint(
                 request.POST.get('ab_same_ip_lookback_hours'), ab.same_ip_lookback_hours, 1

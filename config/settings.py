@@ -37,11 +37,13 @@ SOCIAL_AUTH_PIPELINE = (
     'apps.authentication.social_pipeline.reject_blocked_user',
     'social_core.pipeline.user.get_username',
     'social_core.pipeline.user.create_user',
+    'apps.authentication.social_pipeline.enforce_oauth_registration_rules',
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
     'apps.authentication.social_pipeline.set_google_identity',
     'apps.authentication.social_pipeline.set_registration_ip_social',
+    'apps.authentication.social_pipeline.finalize_new_oauth_registration',
     'apps.authentication.social_pipeline.apply_default_limits',
 )
 

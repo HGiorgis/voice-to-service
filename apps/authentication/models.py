@@ -112,6 +112,11 @@ class AntiAbuseSettings(models.Model):
         help_text='If enabled, password registration only allows @gmail.com / @googlemail.com.',
     )
 
+    oauth_signup_antiabuse_enabled = models.BooleanField(
+        default=True,
+        help_text='When on, new Google OAuth sign-ups use the same registration limits (IP, fingerprint, disposable email, rapid window, device cookie). Existing Google users are unaffected.',
+    )
+
     block_same_ip_registration = models.BooleanField(default=True)
     same_ip_lookback_hours = models.PositiveIntegerField(default=24)
     max_accounts_per_ip_in_lookback = models.PositiveIntegerField(

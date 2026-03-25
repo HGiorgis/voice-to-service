@@ -25,17 +25,16 @@
             <p class="auth-subtitle">Get your API key for Amharic voice intelligence.</p>
             <div class="auth-card">
                 {% if google_oauth_enabled %}
-                <a class="btn btn-outline-dark w-100 mb-3 d-flex align-items-center justify-content-center gap-2" href="{% url 'social:begin' 'google-oauth2' %}">
-                    <i class="fab fa-google"></i> Continue with Google
-                </a>
-                <p class="small text-muted text-center mb-3">Recommended — verified email, fewer signup limits.</p>
+                <form method="post" action="{% url 'auth:oauth-google-start' %}" class="mb-3" id="vts-oauth-google-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="client_fingerprint" id="oauth_client_fingerprint_reg" value="">
+                    <button type="submit" class="btn btn-outline-dark w-100 d-flex align-items-center justify-content-center gap-2">
+                        <i class="fab fa-google"></i> Continue with Google
+                    </button>
+                </form>
                 <div class="auth-divider"></div>
                 <p class="small text-center text-muted mb-3">Or register with email and password</p>
                 {% endif %}
-
-                <div id="vts-soft-warn" class="alert alert-warning small py-2 d-none" role="status">
-                    This browser already completed a sign-up before. Creating extra accounts may be blocked.
-                </div>
 
                 <form method="post" action="{% url 'auth:register' %}" id="vts-register-form">
                     {% csrf_token %}
@@ -84,22 +83,17 @@
     <script src="{% static 'js/main.js' %}"></script>
     <script>
     (function () {
-        try {
-            if (localStorage.getItem('vts_reg_done') === '1') {
-                var w = document.getElementById('vts-soft-warn');
-                if (w) w.classList.remove('d-none');
-            }
-        } catch (e) {}
+        function buildFingerprint() {
+            var s = [navigator.userAgent, screen.width, screen.height, screen.colorDepth, new Date().getTimezoneOffset(), navigator.language || '', navigator.hardwareConcurrency || 0].join('|');
+            var h = 0;
+            for (var i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i) | 0;
+            return 'fp1:' + h.toString(16) + ':' + (navigator.deviceMemory || 0);
+        }
+        var fp = buildFingerprint();
         var input = document.getElementById('client_fingerprint');
-        if (!input) return;
-        var s = [navigator.userAgent, screen.width, screen.height, screen.colorDepth, new Date().getTimezoneOffset(), navigator.language || '', navigator.hardwareConcurrency || 0].join('|');
-        var h = 0;
-        for (var i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i) | 0;
-        input.value = 'fp1:' + h.toString(16) + ':' + (navigator.deviceMemory || 0);
-        var f = document.getElementById('vts-register-form');
-        if (f) f.addEventListener('submit', function () {
-            try { localStorage.setItem('vts_reg_done', '1'); } catch (e) {}
-        });
+        if (input) input.value = fp;
+        var oauthIn = document.getElementById('oauth_client_fingerprint_reg');
+        if (oauthIn) oauthIn.value = fp;
     })();
     </script>
 </body>

@@ -41,7 +41,19 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
                 raise exceptions.AuthenticationFailed('Invalid API key')
 
             if getattr(key_obj.user, 'is_blocked', False):
-                raise exceptions.AuthenticationFailed('This account has been suspended.')
+                u = key_obj.user
+                reason = (getattr(u, 'blocked_reason', None) or '').strip()
+                if reason:
+                    detail = (
+                        'API access is disabled because this account is suspended. '
+                        f'Reason: {reason}'
+                    )
+                else:
+                    detail = (
+                        'API access is disabled because this account is suspended. '
+                        'Contact support if you need help.'
+                    )
+                raise exceptions.AuthenticationFailed(detail)
 
             if key_obj.expires_at and key_obj.expires_at < timezone.now():
                 raise exceptions.AuthenticationFailed('API key has expired')

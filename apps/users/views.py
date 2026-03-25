@@ -5,7 +5,7 @@ from django.core.files.base import ContentFile
 
 from apps.core.voice_temp_storage import get_voice_temp_storage
 from django.http import HttpResponseNotAllowed, JsonResponse, StreamingHttpResponse
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.conf import settings
 from django.shortcuts import render, redirect
 from django.urls import reverse
@@ -26,6 +26,7 @@ from .forms import (
 )
 from apps.authentication.device_info import classify_request
 from apps.authentication.antiabuse import (
+    PUBLIC_REGISTRATION_DENIED_MESSAGE,
     attach_device_cookie,
     check_registration_allowed,
     get_client_ip,
@@ -45,6 +46,17 @@ from datetime import timedelta
 def landing_page_view(request):
     """Public landing page at / ."""
     return render(request, 'landing.html')
+
+
+@require_http_methods(['POST'])
+def oauth_google_start(request):
+    """
+    Store client fingerprint in session before redirecting to Google.
+    Used so new Google sign-ups go through the same anti-abuse checks as password registration.
+    """
+    fp = (request.POST.get('client_fingerprint') or '')[:2000]
+    request.session['vts_oauth_client_fingerprint'] = fp
+    return redirect('social:begin', backend='google-oauth2')
 
 
 def _google_oauth_configured():
@@ -91,7 +103,7 @@ def register_view(request):
                 detail=block_msg[:500],
             )
             maybe_auto_block_ip_after_burst(ip)
-            messages.error(request, block_msg)
+            messages.error(request, PUBLIC_REGISTRATION_DENIED_MESSAGE)
             ctx['form'] = CustomUserCreationForm(request.POST)
             return render(request, 'auth/register.html', ctx)
 
