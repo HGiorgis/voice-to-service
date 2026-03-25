@@ -14,6 +14,10 @@ RUN pip install --no-cache-dir --upgrade pip
 
 COPY requirements-docker.txt .
 RUN pip install --no-cache-dir -r requirements-docker.txt
+RUN pip install google-cloud-speech
+RUN pip install google-cloud-translate
+RUN pip install google-generativeai
+RUN pip install mutagen
 
 COPY . .
 

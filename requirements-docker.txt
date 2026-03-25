@@ -18,10 +18,10 @@ celery
 social-auth-app-django
 
 # Voice pipeline
-google-cloud-speech
-google-cloud-translate
-google-generativeai
-mutagen
+# google-cloud-speech
+# google-cloud-translate
+# google-generativeai
+# mutagen
 
 # Dev / tests
 pytest>=8.0
