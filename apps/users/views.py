@@ -386,13 +386,14 @@ def login_view(request):
                         {'form': CustomAuthenticationForm(), 'google_oauth_enabled': google_on},
                     )
                 login(request, user, backend=MODEL_BACKEND)
-                messages.success(request, f'Welcome back, {username}!')
+                greet = (user.get_short_name() or user.username or '').strip() or 'there'
+                messages.success(request, f'Welcome back, {greet}!')
 
                 if user.is_staff:
                     return redirect('admin:dashboard')
                 return redirect('user:dashboard')
         else:
-            messages.error(request, 'Invalid username or password.')
+            messages.error(request, 'Invalid email, username, or password.')
     else:
         form = CustomAuthenticationForm()
 

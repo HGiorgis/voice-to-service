@@ -43,14 +43,14 @@
                     <div class="alert alert-danger small">{{ form.non_field_errors }}</div>
                     {% endif %}
                     <div class="mb-3">
-                        <label class="form-label" for="id_username">Username</label>
-                        <input type="text" name="username" id="id_username" class="form-control" placeholder="Choose a username" required autofocus value="{{ form.username.value|default:'' }}">
-                        {% if form.username.errors %}<div class="text-danger small">{{ form.username.errors }}</div>{% endif %}
+                        <label class="form-label" for="id_email">Email</label>
+                        <input type="email" name="email" id="id_email" class="form-control" placeholder="you@gmail.com" required autofocus value="{{ form.email.value|default:'' }}">
+                        {% if form.email.errors %}<div class="text-danger small">{{ form.email.errors }}</div>{% endif %}
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="id_email">Email</label>
-                        <input type="email" name="email" id="id_email" class="form-control" placeholder="you@gmail.com" required value="{{ form.email.value|default:'' }}">
-                        {% if form.email.errors %}<div class="text-danger small">{{ form.email.errors }}</div>{% endif %}
+                        <label class="form-label" for="id_username">Username <span class="text-muted fw-normal">(optional)</span></label>
+                        <input type="text" name="username" id="id_username" class="form-control" placeholder="Leave blank to use the part before @ in your email" value="{{ form.username.value|default:'' }}">
+                        {% if form.username.errors %}<div class="text-danger small">{{ form.username.errors }}</div>{% endif %}
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="id_password1">Password</label>

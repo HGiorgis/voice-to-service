@@ -21,36 +21,146 @@
             </div>
         </div>
         <div class="card mb-4">
-            <div class="card-header">Default rate limits</div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="form_type" value="rate_limits">
-                    <div class="mb-3">
-                        <label class="form-label">Default Daily Request Limit</label>
-                        <input type="number" class="form-control" name="default_daily_limit" value="{{ settings.default_daily_limit }}">
-                        <small class="text-muted">Applied to new users</small>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Default Monthly Request Limit</label>
-                        <input type="number" class="form-control" name="default_monthly_limit" value="{{ settings.default_monthly_limit }}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Default daily voice limit (Voice To Service)</label>
-                        <input type="number" class="form-control" name="default_daily_voice_limit" value="{{ settings.default_daily_voice_limit }}" min="0">
-                        <small class="text-muted">Max <code>POST /api/v1/process-audio/</code> per user per day (default 3).</small>
-                    </div>
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" name="apply_to_all" id="applyRateAll">
-                        <label class="form-check-label" for="applyRateAll">Apply to all existing users</label>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Save</button>
-                </form>
+
+            <div class="card mb-4 border-primary">
+                <div class="card-header bg-light">Anti-abuse &amp; signup controls</div>
+                <div class="card-body">
+                    <p class="small text-muted">Password and (optionally) new Google sign-ups share these limits. Google always respects <strong>blocked IPs</strong> and <strong>admin suspension</strong>. Manual IP blocks: Django Admin → <em>Authentication → Blocked IP addresses</em>. Audit: <em>Registration attempts</em> and <a href="{% url 'admin:security-monitor' %}">Security monitor</a>.</p>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="anti_abuse">
+                        <h6 class="text-secondary small text-uppercase mt-2">Master</h6>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="ab_master_enable" id="ab_master_enable" {% if antiabuse.master_enable %}checked{% endif %}>
+                            <label class="form-check-label" for="ab_master_enable">Enable server-side registration checks</label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" name="ab_enforce_admin_block" id="ab_enforce_admin_block" {% if antiabuse.enforce_admin_block %}checked{% endif %}>
+                            <label class="form-check-label" for="ab_enforce_admin_block">Enforce “blocked” users (logout + API deny)</label>
+                        </div>
+
+                        <h6 class="text-secondary small text-uppercase">Email rules</h6>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="ab_block_disposable_email" id="ab_block_disposable_email" {% if antiabuse.block_disposable_email %}checked{% endif %}>
+                            <label class="form-check-label" for="ab_block_disposable_email">Block disposable / temp email domains</label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" name="ab_require_gmail_domain" id="ab_require_gmail_domain" {% if antiabuse.require_gmail_domain_for_password_signup %}checked{% endif %}>
+                            <label class="form-check-label" for="ab_require_gmail_domain">Password signup: Gmail only (@gmail.com / @googlemail.com)</label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" name="ab_oauth_signup_antiabuse" id="ab_oauth_signup_antiabuse" {% if antiabuse.oauth_signup_antiabuse_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="ab_oauth_signup_antiabuse">New Google sign-ups: apply same anti-abuse as password registration (IP, fingerprint, disposable email, rapid window, device cookie)</label>
+                        </div>
+
+                        <h6 class="text-secondary small text-uppercase">IP &amp; fingerprint</h6>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="ab_block_same_ip" id="ab_block_same_ip" {% if antiabuse.block_same_ip_registration %}checked{% endif %}>
+                            <label class="form-check-label" for="ab_block_same_ip">Limit accounts per IP (lookback window)</label>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="form-label small mb-0">IP lookback (hours)</label>
+                                <input type="number" class="form-control form-control-sm" name="ab_same_ip_lookback_hours" value="{{ antiabuse.same_ip_lookback_hours }}" min="1">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small mb-0">Max accounts / IP in window (0 = off)</label>
+                                <input type="number" class="form-control form-control-sm" name="ab_max_accounts_per_ip" value="{{ antiabuse.max_accounts_per_ip_in_lookback }}" min="0">
+                            </div>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="ab_block_same_fingerprint" id="ab_block_same_fingerprint" {% if antiabuse.block_same_fingerprint %}checked{% endif %}>
+                            <label class="form-check-label" for="ab_block_same_fingerprint">Block same browser fingerprint as prior signup</label>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small mb-0">Fingerprint lookback (hours)</label>
+                            <input type="number" class="form-control form-control-sm" name="ab_fingerprint_lookback_hours" value="{{ antiabuse.fingerprint_lookback_hours }}" min="1">
+                        </div>
+
+                        <h6 class="text-secondary small text-uppercase">Rapid signup window</h6>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="ab_block_rapid_window" id="ab_block_rapid_window" {% if antiabuse.block_rapid_registration_window %}checked{% endif %}>
+                            <label class="form-check-label" for="ab_block_rapid_window">Limit successful signups per IP / fingerprint in a short window</label>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-4">
+                                <label class="form-label small mb-0">Window (minutes)</label>
+                                <input type="number" class="form-control form-control-sm" name="ab_rapid_window_minutes" value="{{ antiabuse.rapid_registration_window_minutes }}" min="1">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small mb-0">Max / IP</label>
+                                <input type="number" class="form-control form-control-sm" name="ab_max_reg_ip_rapid" value="{{ antiabuse.max_registrations_per_ip_in_rapid_window }}" min="1">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small mb-0">Max / fingerprint</label>
+                                <input type="number" class="form-control form-control-sm" name="ab_max_reg_fp_rapid" value="{{ antiabuse.max_registrations_per_fingerprint_in_rapid_window }}" min="1">
+                            </div>
+                        </div>
+
+                        <h6 class="text-secondary small text-uppercase">Device cookie</h6>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="ab_device_cookie" id="ab_device_cookie" {% if antiabuse.device_tracker_cookie_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="ab_device_cookie">HttpOnly device cookie (block 2nd account same browser)</label>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small mb-0">Cookie max age (days)</label>
+                            <input type="number" class="form-control form-control-sm" name="ab_device_cookie_days" value="{{ antiabuse.device_tracker_cookie_max_age_days }}" min="1">
+                        </div>
+
+                        <h6 class="text-secondary small text-uppercase">Auto IP block (burst)</h6>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="ab_auto_block_burst" id="ab_auto_block_burst" {% if antiabuse.auto_block_ip_on_burst %}checked{% endif %}>
+                            <label class="form-check-label" for="ab_auto_block_burst">Auto-block IP after many signup attempts</label>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-4">
+                                <label class="form-label small mb-0">Attempts in window</label>
+                                <input type="number" class="form-control form-control-sm" name="ab_burst_count" value="{{ antiabuse.suspicious_burst_registration_count }}" min="2">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small mb-0">Window (minutes)</label>
+                                <input type="number" class="form-control form-control-sm" name="ab_burst_window_minutes" value="{{ antiabuse.suspicious_burst_window_minutes }}" min="1">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small mb-0">Block duration (days)</label>
+                                <input type="number" class="form-control form-control-sm" name="ab_auto_block_days" value="{{ antiabuse.auto_blocked_ip_duration_days }}" min="1">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Save anti-abuse settings</button>
+                    </form>
+                </div>
             </div>
-        </div>
     </div>
     
     <div class="col-md-6">
+                    <div class="card-header">Default rate limits</div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="rate_limits">
+                        <div class="mb-3">
+                            <label class="form-label">Default Daily Request Limit</label>
+                            <input type="number" class="form-control" name="default_daily_limit" value="{{ settings.default_daily_limit }}">
+                            <small class="text-muted">Applied to new users</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Default Monthly Request Limit</label>
+                            <input type="number" class="form-control" name="default_monthly_limit" value="{{ settings.default_monthly_limit }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Default daily voice limit (Voice To Service)</label>
+                            <input type="number" class="form-control" name="default_daily_voice_limit" value="{{ settings.default_daily_voice_limit }}" min="0">
+                            <small class="text-muted">Max <code>POST /api/v1/process-audio/</code> per user per day (default 3).</small>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" name="apply_to_all" id="applyRateAll">
+                            <label class="form-check-label" for="applyRateAll">Apply to all existing users</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </form>
+                </div>
+            </div>
         <div class="card mb-4">
             <div class="card-header">API settings</div>
             <div class="card-body">
@@ -70,116 +180,6 @@
             </div>
         </div>
         
-        <div class="card mb-4 border-primary">
-            <div class="card-header bg-light">Anti-abuse &amp; signup controls</div>
-            <div class="card-body">
-                <p class="small text-muted">Password and (optionally) new Google sign-ups share these limits. Google always respects <strong>blocked IPs</strong> and <strong>admin suspension</strong>. Manual IP blocks: Django Admin → <em>Authentication → Blocked IP addresses</em>. Audit: <em>Registration attempts</em> and <a href="{% url 'admin:security-monitor' %}">Security monitor</a>.</p>
-                <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="form_type" value="anti_abuse">
-                    <h6 class="text-secondary small text-uppercase mt-2">Master</h6>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" name="ab_master_enable" id="ab_master_enable" {% if antiabuse.master_enable %}checked{% endif %}>
-                        <label class="form-check-label" for="ab_master_enable">Enable server-side registration checks</label>
-                    </div>
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" name="ab_enforce_admin_block" id="ab_enforce_admin_block" {% if antiabuse.enforce_admin_block %}checked{% endif %}>
-                        <label class="form-check-label" for="ab_enforce_admin_block">Enforce “blocked” users (logout + API deny)</label>
-                    </div>
-
-                    <h6 class="text-secondary small text-uppercase">Email rules</h6>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" name="ab_block_disposable_email" id="ab_block_disposable_email" {% if antiabuse.block_disposable_email %}checked{% endif %}>
-                        <label class="form-check-label" for="ab_block_disposable_email">Block disposable / temp email domains</label>
-                    </div>
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" name="ab_require_gmail_domain" id="ab_require_gmail_domain" {% if antiabuse.require_gmail_domain_for_password_signup %}checked{% endif %}>
-                        <label class="form-check-label" for="ab_require_gmail_domain">Password signup: Gmail only (@gmail.com / @googlemail.com)</label>
-                    </div>
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" name="ab_oauth_signup_antiabuse" id="ab_oauth_signup_antiabuse" {% if antiabuse.oauth_signup_antiabuse_enabled %}checked{% endif %}>
-                        <label class="form-check-label" for="ab_oauth_signup_antiabuse">New Google sign-ups: apply same anti-abuse as password registration (IP, fingerprint, disposable email, rapid window, device cookie)</label>
-                    </div>
-
-                    <h6 class="text-secondary small text-uppercase">IP &amp; fingerprint</h6>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" name="ab_block_same_ip" id="ab_block_same_ip" {% if antiabuse.block_same_ip_registration %}checked{% endif %}>
-                        <label class="form-check-label" for="ab_block_same_ip">Limit accounts per IP (lookback window)</label>
-                    </div>
-                    <div class="row g-2 mb-2">
-                        <div class="col-6">
-                            <label class="form-label small mb-0">IP lookback (hours)</label>
-                            <input type="number" class="form-control form-control-sm" name="ab_same_ip_lookback_hours" value="{{ antiabuse.same_ip_lookback_hours }}" min="1">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small mb-0">Max accounts / IP in window (0 = off)</label>
-                            <input type="number" class="form-control form-control-sm" name="ab_max_accounts_per_ip" value="{{ antiabuse.max_accounts_per_ip_in_lookback }}" min="0">
-                        </div>
-                    </div>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" name="ab_block_same_fingerprint" id="ab_block_same_fingerprint" {% if antiabuse.block_same_fingerprint %}checked{% endif %}>
-                        <label class="form-check-label" for="ab_block_same_fingerprint">Block same browser fingerprint as prior signup</label>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small mb-0">Fingerprint lookback (hours)</label>
-                        <input type="number" class="form-control form-control-sm" name="ab_fingerprint_lookback_hours" value="{{ antiabuse.fingerprint_lookback_hours }}" min="1">
-                    </div>
-
-                    <h6 class="text-secondary small text-uppercase">Rapid signup window</h6>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" name="ab_block_rapid_window" id="ab_block_rapid_window" {% if antiabuse.block_rapid_registration_window %}checked{% endif %}>
-                        <label class="form-check-label" for="ab_block_rapid_window">Limit successful signups per IP / fingerprint in a short window</label>
-                    </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-4">
-                            <label class="form-label small mb-0">Window (minutes)</label>
-                            <input type="number" class="form-control form-control-sm" name="ab_rapid_window_minutes" value="{{ antiabuse.rapid_registration_window_minutes }}" min="1">
-                        </div>
-                        <div class="col-4">
-                            <label class="form-label small mb-0">Max / IP</label>
-                            <input type="number" class="form-control form-control-sm" name="ab_max_reg_ip_rapid" value="{{ antiabuse.max_registrations_per_ip_in_rapid_window }}" min="1">
-                        </div>
-                        <div class="col-4">
-                            <label class="form-label small mb-0">Max / fingerprint</label>
-                            <input type="number" class="form-control form-control-sm" name="ab_max_reg_fp_rapid" value="{{ antiabuse.max_registrations_per_fingerprint_in_rapid_window }}" min="1">
-                        </div>
-                    </div>
-
-                    <h6 class="text-secondary small text-uppercase">Device cookie</h6>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" name="ab_device_cookie" id="ab_device_cookie" {% if antiabuse.device_tracker_cookie_enabled %}checked{% endif %}>
-                        <label class="form-check-label" for="ab_device_cookie">HttpOnly device cookie (block 2nd account same browser)</label>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small mb-0">Cookie max age (days)</label>
-                        <input type="number" class="form-control form-control-sm" name="ab_device_cookie_days" value="{{ antiabuse.device_tracker_cookie_max_age_days }}" min="1">
-                    </div>
-
-                    <h6 class="text-secondary small text-uppercase">Auto IP block (burst)</h6>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" name="ab_auto_block_burst" id="ab_auto_block_burst" {% if antiabuse.auto_block_ip_on_burst %}checked{% endif %}>
-                        <label class="form-check-label" for="ab_auto_block_burst">Auto-block IP after many signup attempts</label>
-                    </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-4">
-                            <label class="form-label small mb-0">Attempts in window</label>
-                            <input type="number" class="form-control form-control-sm" name="ab_burst_count" value="{{ antiabuse.suspicious_burst_registration_count }}" min="2">
-                        </div>
-                        <div class="col-4">
-                            <label class="form-label small mb-0">Window (minutes)</label>
-                            <input type="number" class="form-control form-control-sm" name="ab_burst_window_minutes" value="{{ antiabuse.suspicious_burst_window_minutes }}" min="1">
-                        </div>
-                        <div class="col-4">
-                            <label class="form-label small mb-0">Block duration (days)</label>
-                            <input type="number" class="form-control form-control-sm" name="ab_auto_block_days" value="{{ antiabuse.auto_blocked_ip_duration_days }}" min="1">
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary">Save anti-abuse settings</button>
-                </form>
-            </div>
-        </div>
-
         <div class="card mb-4 admin-card">
             <div class="card-header">Voice / audio limits</div>
             <div class="card-body">

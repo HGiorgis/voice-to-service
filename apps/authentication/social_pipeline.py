@@ -17,6 +17,19 @@ from apps.authentication.models import AntiAbuseSettings, RegistrationAttempt
 from apps.core.models import SystemSettings
 
 
+def assign_username_from_oauth_email(strategy, details, backend, user=None, *args, **kwargs):
+    """Set details['username'] from email local part (+ random suffix if taken)."""
+    if user is not None:
+        return {}
+    from apps.users.username_utils import allocate_username_from_email
+
+    details = dict(details or {})
+    email = (details.get('email') or '').strip()
+    if email:
+        details['username'] = allocate_username_from_email(email)
+    return {'details': details}
+
+
 def reject_blocked_user(strategy, backend, user=None, *args, **kwargs):
     if user is not None and getattr(user, 'is_blocked', False):
         msg = (getattr(user, 'blocked_reason', None) or '').strip()

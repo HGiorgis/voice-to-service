@@ -9,6 +9,7 @@ from apps.authentication.antiabuse import (
 )
 from apps.authentication.disposable_email import email_domain, is_disposable_domain, is_gmail_domain
 from apps.authentication.models import AntiAbuseSettings
+from apps.users.username_utils import allocate_username_from_email
 
 User = get_user_model()
 
@@ -20,7 +21,13 @@ class CustomUserCreationForm(UserCreationForm):
         widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Enter your email'})
     )
     username = forms.CharField(
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Choose a username'})
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                'class': 'form-control',
+                'placeholder': 'Optional — we’ll pick one from your email if empty',
+            }
+        ),
     )
     password1 = forms.CharField(
         label='Password',
@@ -41,12 +48,19 @@ class CustomUserCreationForm(UserCreationForm):
     
     class Meta:
         model = User
-        fields = ('username', 'email', 'password1', 'password2', 'company_name', 'phone')
+        fields = ('email', 'username', 'password1', 'password2', 'company_name', 'phone')
+
+    def clean(self):
+        email = (self.cleaned_data.get('email') or '').strip()
+        un = (self.cleaned_data.get('username') or '').strip()
+        if email and not un:
+            self.cleaned_data['username'] = allocate_username_from_email(email)
+        return super().clean()
 
     def clean_username(self):
         username = (self.cleaned_data.get('username') or '').strip()
         if not username:
-            raise ValidationError('Enter a username.')
+            return ''
         lookup = User.normalize_username(username)
         if User.objects.filter(username__iexact=lookup).exists():
             raise ValidationError('That username is already taken. Try a different one.')
@@ -135,14 +149,25 @@ class VerifyEmailForm(forms.Form):
 
 class CustomAuthenticationForm(AuthenticationForm):
     """Custom login form"""
-    
+
     username = forms.CharField(
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter your username'})
+        label='Email or username',
+        widget=forms.TextInput(
+            attrs={'class': 'form-control', 'placeholder': 'Email or username'}
+        ),
     )
     password = forms.CharField(
         widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Enter your password'})
     )
-    
+
+    def clean(self):
+        username = (self.cleaned_data.get('username') or '').strip()
+        if username and '@' in username:
+            match = User.objects.filter(email__iexact=username).first()
+            if match:
+                self.cleaned_data['username'] = match.username
+        return super().clean()
+
     class Meta:
         model = User
 
