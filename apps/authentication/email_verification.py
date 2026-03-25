@@ -49,31 +49,43 @@ def issue_new_code(user) -> str:
     return code
 
 
+def _format_from_email() -> str:
+    """
+    Inbox-friendly From: show product name, not only the SMTP username.
+    Accepts DEFAULT_FROM_EMAIL as 'addr@x.com' or 'Name <addr@x.com>'.
+    """
+    raw = (getattr(settings, 'DEFAULT_FROM_EMAIL', None) or 'noreply@localhost').strip()
+    name = (getattr(settings, 'DEFAULT_FROM_NAME', None) or 'Voice To Service').strip()
+    if '<' in raw and '>' in raw:
+        return raw
+    return f'{name} <{raw}>'
+
+
 def send_verification_email(*, user, code: str) -> None:
-    subject = 'Your Voice To Service verification code'
+    product = (getattr(settings, 'DEFAULT_FROM_NAME', None) or 'Voice To Service').strip()
+    subject = f'{product} — Your verification code'
     verify_path = reverse('auth:verify-email')
     base = getattr(settings, 'FRONTEND_URL', 'http://localhost:8000').rstrip('/')
     verify_url = f'{base}{verify_path}'
-    logo_url = f'{base}{settings.STATIC_URL.rstrip("/")}/images/voice-to-service-logo.svg'
 
     context = {
         'code': code,
         'user_email': user.email,
         'verify_url': verify_url,
-        'logo_url': logo_url,
+        'brand_name': product,
         'expire_minutes': int(getattr(settings, 'EMAIL_VERIFICATION_EXPIRE_MINUTES', 15)),
     }
     body_text = (
-        f'Hi,\n\n'
+        f'{product}\n'
         f'Your verification code is: {code}\n\n'
-        f'Enter it on the verification page (along with your name) to activate your account:\n'
+        f'Open the verification page and enter the code with your name:\n'
         f'{verify_url}\n\n'
         f'This code expires in {context["expire_minutes"]} minutes.\n'
         f'If you did not sign up, ignore this email.\n'
     )
     html_body = render_to_string('email/email_verification.html', context)
 
-    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or 'noreply@localhost'
+    from_email = _format_from_email()
     msg = EmailMultiAlternatives(
         subject=subject,
         body=body_text,

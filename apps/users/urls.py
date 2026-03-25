@@ -12,16 +12,6 @@ urlpatterns = [
         views.resend_verification_email_view,
         name='verify-email-resend',
     ),
-    path(
-        'verify-email/change-email/',
-        views.verify_change_email_view,
-        name='verify-email-change-email',
-    ),
-    path(
-        'verify-email/change-username/',
-        views.verify_change_username_view,
-        name='verify-email-change-username',
-    ),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
 ]

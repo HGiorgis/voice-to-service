@@ -30,8 +30,6 @@ from .forms import (
     ChangePasswordForm,
     CustomAuthenticationForm,
     CustomUserCreationForm,
-    PendingSignupChangeEmailForm,
-    PendingSignupChangeUsernameForm,
     UserProfileForm,
     VerifyEmailForm,
     registration_invalid_toast_message,
@@ -322,9 +320,6 @@ def verify_email_view(request):
         'verify_timing': timing,
         'verification_send_max': send_max,
         'resend_gap_seconds': resend_gap,
-        'change_email_form': PendingSignupChangeEmailForm(current_user=user),
-        'change_username_form': PendingSignupChangeUsernameForm(current_user=user),
-        'can_change_username': not user.signup_username_edit_used,
     }
     return render(request, 'auth/verify_email.html', ctx)
 
@@ -342,7 +337,7 @@ def resend_verification_email_view(request):
         messages.error(
             request,
             f'You have used all {send_max} verification emails for this sign-up. '
-            'Change your email below if the address was wrong, or start over from registration.',
+            'Create a new account from registration if you still need access.',
         )
         return redirect('auth:verify-email')
     if not timing['can_resend_code']:
@@ -362,84 +357,6 @@ def resend_verification_email_view(request):
             request,
             'Could not send email. Confirm EMAIL_HOST / EMAIL_HOST_USER / password in your environment.',
         )
-    return redirect('auth:verify-email')
-
-
-@require_http_methods(['POST'])
-def verify_change_email_view(request):
-    purge_expired_unverified_users(request)
-    user = _get_pending_verification_user(request)
-    if not user:
-        messages.error(request, 'No pending verification. Register again.')
-        return redirect('auth:register')
-    timing = _verify_flow_timing(user)
-    if not timing['can_change_email_now']:
-        messages.warning(
-            request,
-            'You can change your email again in '
-            f'{timing["email_change_cooldown_seconds"]} seconds.',
-        )
-        return redirect('auth:verify-email')
-
-    form = PendingSignupChangeEmailForm(request.POST, current_user=user)
-    if not form.is_valid():
-        err = '; '.join(str(e) for e in form.errors.get('email', [])) or 'Check the email address.'
-        messages.error(request, err)
-        return redirect('auth:verify-email')
-
-    new_email = form.cleaned_data['email'].strip()
-    fp_raw = (request.POST.get('client_fingerprint') or '')[:2000]
-    block_msg, _burst = check_registration_allowed(
-        request,
-        email=new_email,
-        client_fingerprint=fp_raw,
-        apply_velocity_and_device_checks=False,
-    )
-    if block_msg:
-        messages.error(request, user_visible_registration_block_message(block_msg))
-        return redirect('auth:verify-email')
-
-    user.email = new_email
-    user.pending_signup_email_changed_at = timezone.now()
-    user.email_verification_send_count = 0
-    user.save(
-        update_fields=['email', 'pending_signup_email_changed_at', 'email_verification_send_count']
-    )
-    code = issue_new_code(user)
-    try:
-        send_verification_email(user=user, code=code)
-        user.email_verification_send_count = 1
-        user.save(update_fields=['email_verification_send_count'])
-        messages.success(request, 'Email updated. We sent a new verification code.')
-    except Exception:
-        messages.error(
-            request,
-            'Email saved but we could not send mail. Check EMAIL_* settings and use Resend.',
-        )
-    return redirect('auth:verify-email')
-
-
-@require_http_methods(['POST'])
-def verify_change_username_view(request):
-    purge_expired_unverified_users(request)
-    user = _get_pending_verification_user(request)
-    if not user:
-        messages.error(request, 'No pending verification. Register again.')
-        return redirect('auth:register')
-    if user.signup_username_edit_used:
-        messages.error(request, 'You can only change your username once on this page.')
-        return redirect('auth:verify-email')
-
-    form = PendingSignupChangeUsernameForm(request.POST, current_user=user)
-    if not form.is_valid():
-        err = '; '.join(str(e) for e in form.errors.get('username', [])) or 'Check the username.'
-        messages.error(request, err)
-        return redirect('auth:verify-email')
-
-    user.username = form.cleaned_data['username']
-    user.signup_username_edit_used = True
-    user.save(update_fields=['username', 'signup_username_edit_used'])
-    messages.success(request, 'Username updated. Use it to sign in after you verify.')
     return redirect('auth:verify-email')
 
 

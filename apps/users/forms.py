@@ -98,70 +98,17 @@ def registration_invalid_toast_message(form: CustomUserCreationForm) -> str:
     return '; '.join(parts) if parts else 'Unable to register. Please check your details and try again.'
 
 
-class PendingSignupChangeEmailForm(forms.Form):
-    """Correct email before OTP during pending verification."""
-
-    email = forms.EmailField(
-        widget=forms.EmailInput(
-            attrs={'class': 'form-control', 'placeholder': 'Correct email address', 'autocomplete': 'email'}
-        ),
-    )
-
-    def __init__(self, *args, current_user=None, **kwargs):
-        self.current_user = current_user
-        super().__init__(*args, **kwargs)
-
-    def clean_email(self):
-        email = (self.cleaned_data.get('email') or '').strip()
-        if not email:
-            raise ValidationError('Enter your email address.')
-        if not self.current_user:
-            return email
-        cfg = AntiAbuseSettings.get_settings()
-        if cfg.master_enable:
-            dom = email_domain(email)
-            if cfg.block_disposable_email and dom and is_disposable_domain(dom):
-                raise ValidationError(PUBLIC_DISPOSABLE_EMAIL_DENIED_MESSAGE)
-            if cfg.require_gmail_domain_for_password_signup and dom and not is_gmail_domain(dom):
-                raise ValidationError(PUBLIC_GMAIL_ONLY_SIGNUP_MESSAGE)
-        taken = User.objects.filter(email__iexact=email).exclude(pk=self.current_user.pk).exists()
-        if taken:
-            raise ValidationError(
-                'That email is already in use. Choose a different address or sign in.'
-            )
-        return email
-
-
-class PendingSignupChangeUsernameForm(forms.Form):
-    """One-time username fix on the verify page."""
-
-    username = forms.CharField(
-        widget=forms.TextInput(
-            attrs={'class': 'form-control', 'placeholder': 'Username', 'autocomplete': 'username'}
-        ),
-    )
-
-    def __init__(self, *args, current_user=None, **kwargs):
-        self.current_user = current_user
-        super().__init__(*args, **kwargs)
-
-    def clean_username(self):
-        username = (self.cleaned_data.get('username') or '').strip()
-        if not username:
-            raise ValidationError('Enter a username.')
-        lookup = User.normalize_username(username)
-        qs = User.objects.filter(username__iexact=lookup)
-        if self.current_user:
-            qs = qs.exclude(pk=self.current_user.pk)
-        if qs.exists():
-            raise ValidationError('That username is already taken. Try a different one.')
-        return lookup
-
-
 class VerifyEmailForm(forms.Form):
     """Complete password signup after OTP is sent."""
 
+    code = forms.CharField(
+        label='Verification code',
+        min_length=6,
+        max_length=8,
+        widget=forms.HiddenInput(attrs={'id': 'id_code', 'autocomplete': 'one-time-code'}),
+    )
     first_name = forms.CharField(
+        label='First name',
         max_length=150,
         required=True,
         widget=forms.TextInput(
@@ -169,24 +116,11 @@ class VerifyEmailForm(forms.Form):
         ),
     )
     last_name = forms.CharField(
+        label='Last name',
         max_length=150,
         required=True,
         widget=forms.TextInput(
             attrs={'class': 'form-control', 'placeholder': 'Last name', 'autocomplete': 'family-name'}
-        ),
-    )
-    code = forms.CharField(
-        min_length=6,
-        max_length=8,
-        widget=forms.TextInput(
-            attrs={
-                'class': 'form-control text-center',
-                'placeholder': '6-digit code',
-                'autocomplete': 'one-time-code',
-                'inputmode': 'numeric',
-                'pattern': '[0-9]*',
-                'style': 'letter-spacing:0.25em;font-size:1.25rem;',
-            }
         ),
     )
 

@@ -12,8 +12,28 @@
                 <table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 8px 24px rgba(40,16,78,0.08);border:1px solid #e8e4f0;">
                     <tr>
                         <td style="background:linear-gradient(135deg,#9754cb 0%,#6237a0 100%);padding:28px 24px;text-align:center;">
-                            <img src="{{ logo_url }}" alt="Voice To Service" width="48" height="48" style="display:inline-block;vertical-align:middle;border-radius:10px;background:#fff;padding:6px;">
-                            <div style="color:#ffffff;font-size:20px;font-weight:700;margin-top:12px;letter-spacing:-0.02em;">Voice To Service</div>
+                            <!-- Inline SVG (same artwork as static/images/voice-to-service-logo.svg) for clients that support it -->
+                            <div style="display:inline-block;line-height:0;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" width="48" height="48" style="display:block;" role="img" aria-label="{{ brand_name }}">
+                                    <defs>
+                                        <linearGradient id="vtsEmailG" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" style="stop-color:#DEACF5"/>
+                                            <stop offset="50%" style="stop-color:#9754CB"/>
+                                            <stop offset="100%" style="stop-color:#6237A0"/>
+                                        </linearGradient>
+                                        <filter id="vtsEmailB" x="-40%" y="-40%" width="180%" height="180%">
+                                            <feGaussianBlur stdDeviation="2" result="blur"/>
+                                            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                        </filter>
+                                    </defs>
+                                    <rect width="64" height="64" rx="16" fill="#28104E"/>
+                                    <path d="M32 14c-4.5 0-8 3.6-8 8v12c0 4.4 3.5 8 8 8s8-3.6 8-8V22c0-4.4-3.5-8-8-8z" stroke="url(#vtsEmailG)" stroke-width="2.5" fill="none" filter="url(#vtsEmailB)"/>
+                                    <path d="M20 30v4c0 7 4.5 12 10 12" stroke="url(#vtsEmailG)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                                    <path d="M44 30v4c0 7-4.5 12-10 12" stroke="url(#vtsEmailG)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                                    <rect x="28" y="44" width="8" height="6" rx="2" fill="url(#vtsEmailG)" opacity="1"/>
+                                </svg>
+                            </div>
+                            <div style="color:#ffffff;font-size:20px;font-weight:700;margin-top:12px;letter-spacing:-0.02em;">{{ brand_name }}</div>
                             <div style="color:rgba(255,255,255,0.88);font-size:14px;margin-top:6px;">Email verification</div>
                         </td>
                     </tr>

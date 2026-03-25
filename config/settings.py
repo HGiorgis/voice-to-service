@@ -270,6 +270,8 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('1', 'true', 'yes')
 EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False').lower() in ('1', 'true', 'yes')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@voice-to-service.com')
+# Shown as inbox "From" name (paired with DEFAULT_FROM_EMAIL unless FROM already includes <…>).
+DEFAULT_FROM_NAME = os.environ.get('DEFAULT_FROM_NAME', 'Voice To Service')
 
 if EMAIL_HOST_USER:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
