@@ -1,6 +1,6 @@
 # Voice To Service — Docker Compose
 # Usage: docker compose up -d --build
-# Set DATABASE_URL, GOOGLE_APPLICATION_CREDENTIALS (mount JSON), GEMINI_API_KEY in .env
+# Set DATABASE_URL, GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_APPLICATION_CREDENTIALS_B64, GEMINI_API_KEY in .env
 
 services:
   web:

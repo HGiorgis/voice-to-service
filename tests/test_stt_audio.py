@@ -6,7 +6,8 @@ Audio input — two options (plus default folder):
   2) STT_TEST_AUDIO_DIR  Directory; all matching audio files are transcribed in integration tests.
   3) If neither is set, files under tests/fixtures/audio/ are used.
 
-Integration tests call the real Google API; require ADC or GOOGLE_APPLICATION_CREDENTIALS.
+Integration tests call the real Google API; require GOOGLE_APPLICATION_CREDENTIALS
+(path) or GOOGLE_APPLICATION_CREDENTIALS_B64 (after django.setup()).
 
 Run (from voice-to-service directory):
   pip install pytest
@@ -171,7 +172,7 @@ def test_transcribe_all_empty_marks_empty_meta(mock_client_cls):
 
 requires_gcp = pytest.mark.skipif(
     not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"),
-    reason="Set GOOGLE_APPLICATION_CREDENTIALS for live STT (service account JSON)",
+    reason="Set GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_APPLICATION_CREDENTIALS_B64 for live STT",
 )
 
 

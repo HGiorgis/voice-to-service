@@ -4,7 +4,7 @@ Minimal STT check using the same code as the Django app (transcribe_amharic).
 
 Prerequisites:
   - pip install -r requirements.txt (google-cloud-speech, mutagen, django, python-dotenv, ...)
-  - GOOGLE_APPLICATION_CREDENTIALS in .env (project root) or in the environment
+  - GOOGLE_APPLICATION_CREDENTIALS (file path) or GOOGLE_APPLICATION_CREDENTIALS_B64 in .env
 
 Usage (from the voice-to-service folder):
   python scripts/stt_smoke_test.py path/to/audio.mp3
@@ -37,6 +37,12 @@ def _load_env_and_path() -> None:
         load_dotenv(env_file)
     except ImportError:
         pass
+
+    if str(ROOT / "apps") not in sys.path:
+        sys.path.insert(0, str(ROOT / "apps"))
+    from core.gcp_credentials import install_gcp_credentials_from_env
+
+    install_gcp_credentials_from_env(project_root=ROOT)
 
     raw = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "") or ""
     creds = raw.strip().strip('"').strip("'")
@@ -74,8 +80,8 @@ def main() -> int:
 
     if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
         print(
-            "Warning: GOOGLE_APPLICATION_CREDENTIALS is not set after loading .env. "
-            f"Expected key in {ROOT / '.env'} (project root), or export it in the shell.",
+            "Warning: No GCP credentials (set GOOGLE_APPLICATION_CREDENTIALS or "
+            "GOOGLE_APPLICATION_CREDENTIALS_B64 in .env).",
             file=sys.stderr,
         )
     _bootstrap_django()

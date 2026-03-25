@@ -22,7 +22,7 @@ cd voice-to-service
 python -m venv .venv
 .venv\Scripts\activate   # Windows
 pip install -r requirements.txt
-cp .env.example .env     # set SECRET_KEY, DATABASE_URL, GOOGLE_APPLICATION_CREDENTIALS, GEMINI_API_KEY
+cp .env.example .env     # set SECRET_KEY, DATABASE_URL, GCP creds (path or GOOGLE_APPLICATION_CREDENTIALS_B64), GEMINI_API_KEY
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
@@ -34,7 +34,7 @@ Register a user → generate API key from the dashboard → call `process-audio`
 
 See `.env.example`. Required for full pipeline:
 
-- `GOOGLE_APPLICATION_CREDENTIALS` — path to GCP service account JSON (Speech + Translation enabled)
+- `GOOGLE_APPLICATION_CREDENTIALS` — path to GCP service account JSON, **or** `GOOGLE_APPLICATION_CREDENTIALS_B64` (Base64 of that JSON; generate with `python scripts/encode_gcp_credentials_b64.py path/to/key.json`)
 - `GEMINI_API_KEY` — Gemini API key for classification
 
 ## Project layout
@@ -46,7 +46,7 @@ See `.env.example`. Required for full pipeline:
 
 ## Docker
 
-Prerequisites: `.env` at the project root (copy from `.env.example`). For Postgres or hosted DB, set `DATABASE_URL`. For the full voice pipeline, set `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT`, and `GEMINI_API_KEY` (paths inside the container must match a **mounted** credentials file, or bake only non-secret config into the image).
+Prerequisites: `.env` at the project root (copy from `.env.example`). For Postgres or hosted DB, set `DATABASE_URL`. For the full voice pipeline, set `GOOGLE_APPLICATION_CREDENTIALS` **or** `GOOGLE_APPLICATION_CREDENTIALS_B64`, plus `GOOGLE_CLOUD_PROJECT`, and `GEMINI_API_KEY`. Hosted environments often use the Base64 variable so no JSON file mount is required.
 
 **Recommended (Compose):**
 

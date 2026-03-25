@@ -5,4 +5,4 @@ Drop sample audio here for integration tests, or use env vars:
 
 Default scan location when those are unset: this directory (tests/fixtures/audio).
 
-Integration tests require Google Cloud credentials (e.g. GOOGLE_APPLICATION_CREDENTIALS).
+Integration tests require Google Cloud credentials (GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_APPLICATION_CREDENTIALS_B64).

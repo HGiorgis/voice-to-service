@@ -11,6 +11,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Add apps directory to Python path
 sys.path.insert(0, str(BASE_DIR / 'apps'))
 
+from core.gcp_credentials import install_gcp_credentials_from_env
+
+install_gcp_credentials_from_env(project_root=BASE_DIR)
+
 # IMPORTANT: Set custom user model FIRST
 AUTH_USER_MODEL = 'users.User'
 
@@ -242,7 +246,8 @@ LOGIN_URL = 'auth:login'
 LOGIN_REDIRECT_URL = 'user:dashboard'
 
 # Google Gemini (classification). Set GEMINI_API_KEY in environment.
-# Google Cloud STT/Translate use GOOGLE_APPLICATION_CREDENTIALS (service account JSON).
+# Google Cloud STT/Translate: GOOGLE_APPLICATION_CREDENTIALS (JSON path) or
+# GOOGLE_APPLICATION_CREDENTIALS_B64 (Base64 JSON) — see scripts/encode_gcp_credentials_b64.py.
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '').strip()
 GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash').strip()
 
