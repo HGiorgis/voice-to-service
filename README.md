@@ -57,7 +57,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-- **Image:** `python:3.11-slim`, installs `requirements-docker.txt`, runs `collectstatic` at build, starts with `migrate` → `create_default_admin` → **Daphne** on port 8000.
+- **Image:** `python:3.11-slim`, installs **pinned** `requirements-docker.txt` (avoids pip “resolution-too-deep” on the Google client graph), runs `collectstatic` at build, starts with `migrate` → `create_default_admin` → **Daphne** on port 8000. **Pytest** is not in this file — use `requirements.txt` locally for tests.
 - **Compose** bind-mounts the project for development and persists `media` / `staticfiles` in named volumes.
 - Default URL: [http://localhost:8000](http://localhost:8000).
 

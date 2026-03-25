@@ -214,7 +214,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
 
 # CSRF: allow same-origin requests from the deployed host (Django 4+ checks Origin)
-_origins = os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000').strip()
+_origins = os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000,https://voice-to-service.onrender.com').strip()
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _origins.split(',') if o.strip()]
 
 # Crispy Forms
