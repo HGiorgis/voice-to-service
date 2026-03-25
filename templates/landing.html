@@ -1,0 +1,87 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/voice-to-service-logo.svg' %}">
+    <title>Voice To Service — Amharic voice intelligence API</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/voice-to-service-theme.css' %}">
+</head>
+<body class="ev-landing">
+<div class="ev-landing-mesh" aria-hidden="true"></div>
+
+<header class="app-header">
+    <div class="app-header-inner">
+        <a class="brand" href="{% url 'landing' %}">
+            <span class="brand-icon"><img src="{% static 'images/voice-to-service-logo.svg' %}" alt="" width="32" height="32"></span>
+            Voice To Service
+        </a>
+        <nav class="app-nav">
+            <a class="app-nav-link" href="{% url 'auth:login' %}">Log in</a>
+            <a class="app-nav-btn" href="{% url 'auth:register' %}">Get API access</a>
+        </nav>
+    </div>
+</header>
+
+<main class="ev-landing-content">
+    <section class="ev-hero container text-center">
+        <span class="ev-hero-badge"><i class="fas fa-bolt"></i> Voice API · Production-ready</span>
+        <h1 class="mb-3">Amharic speech → <span class="ev-gradient-text">structured intelligence</span></h1>
+        <p class="ev-hero-lead">
+            Transcribe <strong>Amharic</strong>, translate to <strong>English</strong>, and route intent —
+            <strong>Medical</strong>, <strong>Police</strong>, <strong>Fire</strong>, or <strong>None</strong> —
+            for emergency systems, mobile apps, and smart cities.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 ev-cta-row">
+            <a href="{% url 'auth:register' %}" class="btn btn-primary ev-cta-primary"><i class="fas fa-key me-2"></i>Create account</a>
+            <a href="{% url 'auth:login' %}" class="btn btn-outline-secondary ev-cta-ghost">Log in</a>
+        </div>
+    </section>
+
+    <section class="container pb-5 pt-2">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <article class="ev-feature-card">
+                    <div class="ev-icon-wrap"><i class="fas fa-microphone-alt"></i></div>
+                    <h3>Full pipeline</h3>
+                    <p>Audio → Google Speech (<code>am-ET</code>) → Google Translate → Gemini classification → JSON you can plug into any backend.</p>
+                </article>
+            </div>
+            <div class="col-md-4">
+                <article class="ev-feature-card">
+                    <div class="ev-icon-wrap"><i class="fas fa-shield-alt"></i></div>
+                    <h3>Secure by design</h3>
+                    <p>Per-user API keys. Send <code>X-API-Key</code> or <code>Authorization: Bearer</code> — no passwords in your integrations.</p>
+                </article>
+            </div>
+            <div class="col-md-4">
+                <article class="ev-feature-card">
+                    <div class="ev-icon-wrap"><i class="fas fa-sliders-h"></i></div>
+                    <h3>Fair limits</h3>
+                    <p>Daily voice quota, max duration per file, and upload size — all tunable from admin settings.</p>
+                </article>
+            </div>
+        </div>
+
+        <div class="ev-endpoint-panel mt-5">
+            <h3><i class="fas fa-terminal me-2 text-secondary"></i>Try it</h3>
+            <pre><code>POST /api/v1/process-audio/
+Content-Type: multipart/form-data
+X-API-Key: YOUR_KEY
+
+audio: (wav or mp3 file)</code></pre>
+        </div>
+    </section>
+</main>
+
+<footer class="app-footer text-center py-5">
+    <small class="text-secondary">&copy; 2026 Voice To Service · Voice intelligence API</small>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

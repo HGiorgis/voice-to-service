@@ -1,0 +1,631 @@
+{% extends 'user/base_user.html' %}
+{% load static %}
+
+{% block user_title %}Test audio{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/voice-test-console.css' %}">
+{% endblock %}
+
+{% block user_content %}
+<h1 class="page-title mb-2">Voice test console</h1>
+<div class="vtc-hero page-subtitle mb-4">
+    <p class="mb-2">Same pipeline as <code>POST /api/v1/process-audio/</code> — speech-to-text → English → classification. Server limit: <strong>{{ max_audio_seconds|floatformat:0 }}s</strong>, <strong>{{ max_audio_mb }} MB</strong>. Recording auto-stops at <strong>{{ max_record_seconds|floatformat:0 }}s</strong> (7 minutes or server max).</p>
+    <p class="mb-0 small text-muted">Upload a file, or <strong>record</strong> with the mic: when you stop, <strong>listen to the preview</strong>, then <strong>Run pipeline</strong> (recordings need at least <strong>7 seconds</strong>). Processing runs in the <strong>background</strong>; use <strong>Resume last job</strong> or <strong>Check status</strong> after refresh.</p>
+</div>
+
+<div class="alert ev-alert-quota mb-4" role="status">
+    <strong>Quota today:</strong> {{ voice_today }} / {{ voice_limit }} voice request(s)
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card mb-4 border-0 shadow-sm">
+            <div class="card-header bg-white py-3 fw-semibold"><i class="fas fa-cloud-upload-alt me-2 text-primary"></i>Upload audio</div>
+            <div class="card-body">
+                <div class="vtc-dropzone mb-3" id="vtc-dropzone" tabindex="0" role="button" aria-label="Drop audio file here or press Enter to browse">
+                    <div class="vtc-dropzone__icon"><i class="fas fa-file-audio"></i></div>
+                    <p class="mb-1 fw-medium">Drag and drop a file here</p>
+                    <p class="small text-muted mb-3">or</p>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="vtc-browse-btn"><i class="fas fa-folder-open me-1"></i>Browse files</button>
+                    <input type="file" id="vtc-file-input" class="d-none" accept=".wav,.mp3,.webm,audio/wav,audio/mpeg,audio/webm">
+                </div>
+                <p class="vtc-file-name mb-0" id="vtc-file-label">No file selected</p>
+            </div>
+        </div>
+
+        <div class="card mb-4 border-0 shadow-sm">
+            <div class="card-header bg-white py-3 fw-semibold"><i class="fas fa-microphone me-2 text-danger"></i>Studio record</div>
+            <div class="card-body">
+                <div class="vtc-record-panel">
+                    <div class="d-flex flex-wrap align-items-center gap-2 justify-content-between">
+                        <div>
+                            <button type="button" class="btn btn-danger" id="vtc-record-btn" aria-pressed="false">
+                                <i class="fas fa-circle me-1"></i><span id="vtc-record-btn-label">Record</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary ms-1" id="vtc-stop-btn" disabled>Stop</button>
+                        </div>
+                        <div class="vtc-timer text-muted" id="vtc-timer" aria-live="polite">0:00</div>
+                    </div>
+                    <div class="vtc-wave-wrap" aria-hidden="true">
+                        <span class="vtc-wave-label">Input level</span>
+                        <canvas class="vtc-wave-canvas" id="vtc-wave-canvas" width="600" height="72"></canvas>
+                    </div>
+                    <p class="vtc-shortcuts mt-2 mb-0"><kbd>Space</kbd> stop &middot; Auto-stop at {{ max_record_seconds|floatformat:0 }}s &middot; Min <strong>7s</strong> before pipeline</p>
+                    <div class="vtc-preview-wrap d-none" id="vtc-preview-wrap">
+                        <p class="small fw-medium mb-2"><i class="fas fa-headphones me-1 text-primary"></i>Preview your recording</p>
+                        <audio id="vtc-preview-audio" class="w-100 mb-2" controls preload="metadata"></audio>
+                        <p class="small text-muted mb-2" id="vtc-preview-hint">Play it back, then run the pipeline when you are happy with it.</p>
+                        <p class="small text-warning mb-2 d-none" id="vtc-preview-too-short">Recording is under 7 seconds — record again or upload a file.</p>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="vtc-discard-record"><i class="fas fa-redo me-1"></i>Discard &amp; re-record</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mb-2">
+            <button type="button" class="btn btn-primary" id="vtc-run-btn" disabled title="Choose a file or finish a 7s+ recording">
+                <i class="fas fa-play me-2"></i>Run pipeline
+            </button>
+            <button type="button" class="btn btn-outline-primary" id="vtc-check-btn" disabled>
+                <i class="fas fa-sync-alt me-2"></i>Check status
+            </button>
+            <button type="button" class="btn btn-outline-secondary" id="vtc-resume-btn">
+                <i class="fas fa-history me-2"></i>Resume last job
+            </button>
+        </div>
+        <div class="vtc-job-bar mb-4 text-muted" id="vtc-job-bar">
+            <span class="me-2">Job:</span><code class="user-select-all" id="vtc-job-id">—</code>
+            <button type="button" class="btn btn-link btn-sm py-0 align-baseline d-none" id="vtc-copy-id">Copy ID</button>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100" id="vtc-pipeline-card">
+            <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <span class="fw-semibold"><i class="fas fa-stream me-2 text-secondary"></i>Pipeline log</span>
+                <span class="badge rounded-pill vtc-status-pill bg-light text-secondary border" id="vtc-run-state">Idle</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="vtc-pipeline-log ev-pipeline-log" role="log" aria-live="polite" aria-relevant="additions" id="vtc-pipeline-log">
+                    <p class="text-muted small px-3 py-3 mb-0" id="vtc-log-placeholder">Run the pipeline to see each step appear here as the worker completes it.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-none mb-4" id="vtc-alerts-host"></div>
+<div class="d-none mb-4" id="vtc-summary-wrap">
+    <div class="card ev-summary-card border-0 shadow-sm">
+        <div class="card-header bg-white fw-semibold">Result</div>
+        <div class="card-body" id="vtc-summary-body"></div>
+    </div>
+</div>
+
+{% if test_result %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-light">Previous server-rendered run</div>
+    <div class="card-body small text-muted">This block appears if you submitted the legacy form without JavaScript.</div>
+</div>
+{% endif %}
+
+<form id="vtc-csrf-form" class="d-none">{% csrf_token %}</form>
+
+<script>
+(function () {
+    var LS_KEY = 'voice_test_last_job_id';
+    var MIN_RECORD_SEC = 7;
+    var maxRecordSec = {{ max_record_seconds|floatformat:0 }};
+    maxRecordSec = Math.min(420, parseFloat(String(maxRecordSec).replace(',', '.')) || 420);
+    var jobStartUrl = '{{ test_job_start_url|escapejs }}';
+    var statusTpl = '{{ test_job_status_url_template|escapejs }}';
+    var statusPh = '{{ test_job_status_placeholder|escapejs }}';
+
+    var dropzone = document.getElementById('vtc-dropzone');
+    var fileInput = document.getElementById('vtc-file-input');
+    var browseBtn = document.getElementById('vtc-browse-btn');
+    var fileLabel = document.getElementById('vtc-file-label');
+    var recordBtn = document.getElementById('vtc-record-btn');
+    var recordBtnLabel = document.getElementById('vtc-record-btn-label');
+    var stopBtn = document.getElementById('vtc-stop-btn');
+    var timerEl = document.getElementById('vtc-timer');
+    var waveCanvas = document.getElementById('vtc-wave-canvas');
+    var previewWrap = document.getElementById('vtc-preview-wrap');
+    var previewAudio = document.getElementById('vtc-preview-audio');
+    var previewHint = document.getElementById('vtc-preview-hint');
+    var previewTooShort = document.getElementById('vtc-preview-too-short');
+    var discardRecordBtn = document.getElementById('vtc-discard-record');
+    var runBtn = document.getElementById('vtc-run-btn');
+    var checkBtn = document.getElementById('vtc-check-btn');
+    var resumeBtn = document.getElementById('vtc-resume-btn');
+    var jobIdEl = document.getElementById('vtc-job-id');
+    var copyIdBtn = document.getElementById('vtc-copy-id');
+    var logEl = document.getElementById('vtc-pipeline-log');
+    var logPlaceholder = document.getElementById('vtc-log-placeholder');
+    var runStateEl = document.getElementById('vtc-run-state');
+    var summaryWrap = document.getElementById('vtc-summary-wrap');
+    var summaryBody = document.getElementById('vtc-summary-body');
+    var alertsHost = document.getElementById('vtc-alerts-host');
+    var csrfForm = document.getElementById('vtc-csrf-form');
+
+    var currentFile = null;
+    var audioSourceKind = null;
+    var previewObjectUrl = null;
+    var mediaRecorder = null;
+    var recordChunks = [];
+    var recordStream = null;
+    var audioCtx = null;
+    var analyser = null;
+    var rafId = null;
+    var recordStartedAt = 0;
+    var recordTimerId = null;
+    var recording = false;
+    var pollTimer = null;
+    var activeJobId = null;
+    var lastLogLen = 0;
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function statusUrlFor(id) {
+        if (!statusPh || !statusTpl) return statusTpl;
+        return statusTpl.split(statusPh).join(id);
+    }
+
+    function csrfToken() {
+        var t = csrfForm && csrfForm.querySelector('[name=csrfmiddlewaretoken]');
+        return t ? t.value : '';
+    }
+
+    function setRunState(text, variant) {
+        runStateEl.textContent = text;
+        runStateEl.className = 'badge rounded-pill vtc-status-pill border ';
+        if (variant === 'ok') runStateEl.className += 'bg-light text-success border-success';
+        else if (variant === 'err') runStateEl.className += 'bg-light text-danger border-danger';
+        else if (variant === 'run') runStateEl.className += 'bg-light text-primary border-primary';
+        else runStateEl.className += 'bg-light text-secondary';
+    }
+
+    function setJobId(id) {
+        activeJobId = id || null;
+        if (id) {
+            jobIdEl.textContent = id;
+            copyIdBtn.classList.remove('d-none');
+            checkBtn.disabled = false;
+            try { localStorage.setItem(LS_KEY, id); } catch (e) {}
+        } else {
+            jobIdEl.textContent = '—';
+            copyIdBtn.classList.add('d-none');
+            checkBtn.disabled = true;
+        }
+    }
+
+    function clearLog() {
+        logEl.innerHTML = '';
+        logPlaceholder = null;
+        lastLogLen = 0;
+    }
+
+    function ensureLogCleared() {
+        if (logPlaceholder) {
+            logPlaceholder.remove();
+            logPlaceholder = null;
+        }
+    }
+
+    function appendLogEntry(entry) {
+        ensureLogCleared();
+        var lines = (entry.lines || []).map(function (l) { return escapeHtml(String(l)); }).join('\n');
+        var div = document.createElement('div');
+        div.className = 'vtc-log-entry ev-log-entry ev-log-' + escapeHtml(entry.status || 'info');
+        div.innerHTML =
+            '<div class="ev-log-head">' +
+            '<span class="ev-log-time">' + escapeHtml(entry.t || '') + '</span> ' +
+            '<span class="ev-log-step-tag">' + escapeHtml(entry.step || '') + '</span> ' +
+            '<span class="ev-log-label">' + escapeHtml(entry.label || '') + '</span> ' +
+            '<span class="ev-log-badge ev-badge-' + escapeHtml(entry.status || 'info') + '">' + escapeHtml(entry.status || '') + '</span>' +
+            '</div>' +
+            '<pre class="ev-log-lines">' + lines + '</pre>';
+        logEl.appendChild(div);
+        div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function syncLogFromPoll(entries) {
+        if (!entries || !entries.length) return;
+        ensureLogCleared();
+        while (lastLogLen < entries.length) {
+            appendLogEntry(entries[lastLogLen]);
+            lastLogLen++;
+        }
+    }
+
+    function showSummary(payload) {
+        var cat = payload.category != null ? payload.category : '—';
+        var conf = payload.confidence != null ? ' <span class="text-muted">(confidence ' + escapeHtml(String(payload.confidence)) + ')</span>' : '';
+        var am = payload.amharic_text || '—';
+        var en = payload.english_text || '—';
+        var raw = payload.raw_classification || '—';
+        var rid = payload.request_id ? '<dt class="col-sm-3">Request ID</dt><dd class="col-sm-9"><small><code>' + escapeHtml(payload.request_id) + '</code></small></dd>' : '';
+        summaryBody.innerHTML =
+            '<dl class="row mb-0">' +
+            '<dt class="col-sm-3">Category</dt><dd class="col-sm-9"><strong>' + escapeHtml(String(cat)) + '</strong>' + conf + '</dd>' +
+            '<dt class="col-sm-3">Amharic</dt><dd class="col-sm-9" dir="auto">' + escapeHtml(String(am)) + '</dd>' +
+            '<dt class="col-sm-3">English</dt><dd class="col-sm-9">' + escapeHtml(String(en)) + '</dd>' +
+            '<dt class="col-sm-3">Raw classifier</dt><dd class="col-sm-9"><small class="text-muted">' + escapeHtml(String(raw)) + '</small></dd>' +
+            rid +
+            '</dl>';
+        summaryWrap.classList.remove('d-none');
+    }
+
+    function showErrorAlert(msg) {
+        alertsHost.innerHTML = '';
+        var err = document.createElement('div');
+        err.className = 'alert alert-danger small mb-0';
+        err.textContent = msg;
+        alertsHost.appendChild(err);
+        alertsHost.classList.remove('d-none');
+    }
+
+    function clearAlerts() {
+        alertsHost.innerHTML = '';
+        alertsHost.classList.add('d-none');
+    }
+
+    function stopPoll() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    function revokePreviewUrl() {
+        if (previewObjectUrl) {
+            try { URL.revokeObjectURL(previewObjectUrl); } catch (e) {}
+            previewObjectUrl = null;
+        }
+        if (previewAudio) {
+            previewAudio.pause();
+            previewAudio.removeAttribute('src');
+            previewAudio.load();
+        }
+    }
+
+    function hideRecordingPreview() {
+        if (previewWrap) previewWrap.classList.add('d-none');
+        if (previewTooShort) previewTooShort.classList.add('d-none');
+        if (previewHint) previewHint.classList.remove('d-none');
+    }
+
+    function applyFile(file, sourceKind) {
+        if (!file) return;
+        revokePreviewUrl();
+        hideRecordingPreview();
+        currentFile = file;
+        audioSourceKind = sourceKind || 'upload';
+        fileLabel.textContent = file.name + ' (' + (file.size < 1048576 ? (file.size / 1024).toFixed(1) + ' KB' : (file.size / 1048576).toFixed(2) + ' MB') + ')';
+        runBtn.disabled = false;
+        runBtn.title = '';
+        clearAlerts();
+    }
+
+    function stageRecordingAfterStop(blob, mimeType, durationSec) {
+        revokePreviewUrl();
+        var file = new File([blob], 'recording-' + Date.now() + '.webm', { type: mimeType || 'audio/webm' });
+        currentFile = file;
+        audioSourceKind = 'record';
+        fileLabel.textContent = file.name + ' · ' + durationSec.toFixed(1) + 's (not sent until you run pipeline)';
+        previewObjectUrl = URL.createObjectURL(blob);
+        previewAudio.src = previewObjectUrl;
+        previewWrap.classList.remove('d-none');
+        var ok = durationSec >= MIN_RECORD_SEC;
+        if (ok) {
+            previewTooShort.classList.add('d-none');
+            previewHint.classList.remove('d-none');
+            runBtn.disabled = false;
+            runBtn.title = '';
+        } else {
+            previewTooShort.classList.remove('d-none');
+            previewHint.classList.add('d-none');
+            runBtn.disabled = true;
+            runBtn.title = 'Recording must be at least ' + MIN_RECORD_SEC + ' seconds';
+        }
+        timerEl.textContent = '0:00';
+        clearAlerts();
+    }
+
+    browseBtn.addEventListener('click', function () { fileInput.click(); });
+    fileInput.addEventListener('change', function () {
+        if (fileInput.files && fileInput.files[0]) applyFile(fileInput.files[0], 'upload');
+    });
+
+    ['dragenter', 'dragover'].forEach(function (ev) {
+        dropzone.addEventListener(ev, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('vtc-dropzone--active');
+        });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+        dropzone.addEventListener(ev, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (ev !== 'drop') dropzone.classList.remove('vtc-dropzone--active');
+        });
+    });
+    dropzone.addEventListener('drop', function (e) {
+        dropzone.classList.remove('vtc-dropzone--active');
+        var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) applyFile(f, 'upload');
+    });
+    dropzone.addEventListener('click', function (e) {
+        if (e.target === browseBtn || browseBtn.contains(e.target)) return;
+        fileInput.click();
+    });
+    dropzone.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            fileInput.click();
+        }
+    });
+
+    function formatTime(sec) {
+        var m = Math.floor(sec / 60);
+        var s = Math.floor(sec % 60);
+        return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    function stopWave() {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = null;
+        if (waveCanvas) {
+            var ctx = waveCanvas.getContext('2d');
+            if (ctx) ctx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+        }
+    }
+
+    function drawWave() {
+        if (!analyser || !waveCanvas) return;
+        var ctx = waveCanvas.getContext('2d');
+        var w = waveCanvas.width;
+        var h = waveCanvas.height;
+        var bufferLength = analyser.frequencyBinCount;
+        var dataArray = new Uint8Array(bufferLength);
+        analyser.getByteFrequencyData(dataArray);
+
+        ctx.clearRect(0, 0, w, h);
+        var bars = 48;
+        var step = Math.floor(bufferLength / bars);
+        var barW = w / bars;
+        for (var i = 0; i < bars; i++) {
+            var v = 0;
+            for (var j = 0; j < step; j++) v += dataArray[i * step + j] || 0;
+            v = v / step;
+            var bh = Math.max(2, (v / 255) * (h - 10));
+            var hue = 210 + (v / 255) * 50;
+            ctx.fillStyle = 'hsla(' + hue + ', 75%, 42%, 0.9)';
+            ctx.fillRect(i * barW + 1, h - bh, barW - 2, bh);
+        }
+        rafId = requestAnimationFrame(drawWave);
+    }
+
+    function teardownMic() {
+        stopWave();
+        if (recordStream) {
+            recordStream.getTracks().forEach(function (t) { t.stop(); });
+            recordStream = null;
+        }
+        if (audioCtx && audioCtx.state !== 'closed') {
+            audioCtx.close().catch(function () {});
+            audioCtx = null;
+        }
+        analyser = null;
+    }
+
+    function stopRecording() {
+        if (!recording || !mediaRecorder) return;
+        var elapsedSec = (Date.now() - recordStartedAt) / 1000;
+        var mimeCaptured = mediaRecorder.mimeType || 'audio/webm';
+        var mr = mediaRecorder;
+        mediaRecorder = null;
+        recording = false;
+        recordBtn.setAttribute('aria-pressed', 'false');
+        recordBtnLabel.textContent = 'Record';
+        stopBtn.disabled = true;
+        if (recordTimerId) {
+            clearInterval(recordTimerId);
+            recordTimerId = null;
+        }
+        mr.onstop = function () {
+            teardownMic();
+            var blob = new Blob(recordChunks, { type: mimeCaptured });
+            stageRecordingAfterStop(blob, mimeCaptured, elapsedSec);
+        };
+        try {
+            if (mr.state === 'recording') mr.stop();
+            else if (mr.state === 'inactive') {
+                teardownMic();
+                var blob = new Blob(recordChunks, { type: mimeCaptured });
+                stageRecordingAfterStop(blob, mimeCaptured, elapsedSec);
+            }
+        } catch (e) {
+            teardownMic();
+            var blob = new Blob(recordChunks, { type: mimeCaptured });
+            stageRecordingAfterStop(blob, mimeCaptured, elapsedSec);
+        }
+    }
+
+    recordBtn.addEventListener('click', function () {
+        if (recording) return;
+        recordChunks = [];
+        revokePreviewUrl();
+        hideRecordingPreview();
+        currentFile = null;
+        audioSourceKind = null;
+        runBtn.disabled = true;
+        runBtn.title = 'Finish recording first';
+        fileLabel.textContent = 'Recording…';
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+            recordStream = stream;
+            var mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
+            mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = function (e) {
+                if (e.data && e.data.size) recordChunks.push(e.data);
+            };
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256;
+                var src = audioCtx.createMediaStreamSource(stream);
+                src.connect(analyser);
+            } catch (e) {
+                analyser = null;
+            }
+            mediaRecorder.start(100);
+            recording = true;
+            recordBtn.setAttribute('aria-pressed', 'true');
+            recordBtnLabel.textContent = 'Recording…';
+            stopBtn.disabled = false;
+            recordStartedAt = Date.now();
+            if (analyser) drawWave();
+            recordTimerId = setInterval(function () {
+                var elapsed = (Date.now() - recordStartedAt) / 1000;
+                timerEl.textContent = formatTime(elapsed);
+                if (elapsed >= maxRecordSec) stopRecording();
+            }, 250);
+        }).catch(function (err) {
+            showErrorAlert('Microphone access denied or unavailable: ' + (err && err.message ? err.message : String(err)));
+        });
+    });
+
+    stopBtn.addEventListener('click', stopRecording);
+
+    discardRecordBtn.addEventListener('click', function () {
+        revokePreviewUrl();
+        hideRecordingPreview();
+        currentFile = null;
+        audioSourceKind = null;
+        fileLabel.textContent = 'No file selected';
+        runBtn.disabled = true;
+        runBtn.title = 'Choose a file or finish a 7s+ recording';
+        recordChunks = [];
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.code === 'Space' && recording && !e.repeat) {
+            var tag = (e.target && e.target.tagName) || '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+            e.preventDefault();
+            stopRecording();
+        }
+    }, true);
+
+    copyIdBtn.addEventListener('click', function () {
+        if (!activeJobId) return;
+        navigator.clipboard.writeText(activeJobId).catch(function () {});
+    });
+
+    function pollOnce() {
+        if (!activeJobId) return;
+        fetch(statusUrlFor(activeJobId), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+            .then(function (res) { return res.json().then(function (j) { return { res: res, j: j }; }); })
+            .then(function (o) {
+                if (!o.res.ok) throw new Error(o.j.error || ('HTTP ' + o.res.status));
+                var j = o.j;
+                syncLogFromPoll(j.pipeline_log || []);
+                if (j.status === 'completed') {
+                    stopPoll();
+                    setRunState('Completed', 'ok');
+                    runBtn.disabled = false;
+                    showSummary(j);
+                    clearAlerts();
+                } else if (j.status === 'failed') {
+                    stopPoll();
+                    setRunState('Failed', 'err');
+                    runBtn.disabled = false;
+                    showErrorAlert(j.error || j.error_message || 'Job failed');
+                } else {
+                    setRunState('Processing…', 'run');
+                }
+            })
+            .catch(function (err) {
+                showErrorAlert(String(err.message || err));
+            });
+    }
+
+    function startPolling() {
+        stopPoll();
+        pollTimer = setInterval(pollOnce, 1200);
+        pollOnce();
+    }
+
+    runBtn.addEventListener('click', function () {
+        if (!currentFile) return;
+        clearAlerts();
+        summaryWrap.classList.add('d-none');
+        clearLog();
+        logPlaceholder = document.createElement('p');
+        logPlaceholder.className = 'text-muted small px-3 py-3 mb-0';
+        logPlaceholder.id = 'vtc-log-placeholder';
+        logPlaceholder.textContent = 'Waiting for worker…';
+        logEl.appendChild(logPlaceholder);
+        lastLogLen = 0;
+
+        runBtn.disabled = true;
+        setRunState('Queued…', 'run');
+        var fd = new FormData();
+        fd.append('audio', currentFile, currentFile.name);
+
+        fetch(jobStartUrl, {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': csrfToken(), Accept: 'application/json' },
+        })
+            .then(function (res) { return res.json().then(function (j) { return { res: res, j: j }; }); })
+            .then(function (o) {
+                if (!o.res.ok) throw new Error(o.j.error || ('HTTP ' + o.res.status));
+                setJobId(o.j.request_id);
+                startPolling();
+            })
+            .catch(function (err) {
+                setRunState('Error', 'err');
+                runBtn.disabled = false;
+                showErrorAlert(String(err.message || err));
+                if (logPlaceholder) {
+                    logPlaceholder.textContent = 'Could not start job.';
+                }
+            });
+    });
+
+    checkBtn.addEventListener('click', pollOnce);
+
+    resumeBtn.addEventListener('click', function () {
+        var id = null;
+        try { id = localStorage.getItem(LS_KEY); } catch (e) {}
+        if (!id) {
+            showErrorAlert('No saved job in this browser.');
+            return;
+        }
+        clearAlerts();
+        setJobId(id);
+        clearLog();
+        lastLogLen = 0;
+        setRunState('Loading…', 'run');
+        startPolling();
+    });
+
+    try {
+        var saved = localStorage.getItem(LS_KEY);
+        if (saved && /^[0-9a-f-]{36}$/i.test(saved)) {
+            setJobId(saved);
+            setRunState('Resume with button', '');
+        }
+    } catch (e) {}
+})();
+</script>
+{% endblock %}

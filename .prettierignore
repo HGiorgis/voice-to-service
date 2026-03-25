@@ -1,0 +1,7 @@
+# Ignore all template files
+**/templates/**/*.html
+**/templates/**/*.txt
+
+# Also ignore if you have other Django template extensions
+**/templates/**/*.djhtml
+**/templates/**/*.django.html

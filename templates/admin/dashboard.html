@@ -1,0 +1,82 @@
+{% extends 'admin/base_admin.html' %}
+
+{% block admin_title %}Dashboard{% endblock %}
+
+{% block admin_content %}
+<div class="page-header">
+    <h1 class="page-title">Voice To Service — Admin</h1>
+    <span class="badge bg-secondary">Admin: {{ user.username }}</span>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ total_voice }}</div>
+        <div class="stat-label">Total voice requests</div>
+        <div class="stat-meta">+{{ voice_today }} today</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ voice_completed }}</div>
+        <div class="stat-label">Completed</div>
+        <div class="stat-meta">{{ voice_failed }} failed</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ total_api_calls }}</div>
+        <div class="stat-label">API calls (all time)</div>
+        <div class="stat-meta">+{{ api_calls_today }} today</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ total_users }}</div>
+        <div class="stat-label">Users</div>
+        <div class="stat-meta">{{ active_keys }} active API keys</div>
+    </div>
+</div>
+
+<div class="card mb-4 admin-card">
+    <div class="card-header">Quick actions</div>
+    <div class="card-body">
+        <a href="{% url 'admin:voice-list' %}?status=failed" class="btn btn-outline-secondary me-2">
+            <i class="fas fa-exclamation-triangle me-1"></i>Failed ({{ voice_failed }})
+        </a>
+        <a href="{% url 'admin:voice-list' %}" class="btn btn-outline-secondary me-2">
+            <i class="fas fa-microphone me-1"></i>All voice log
+        </a>
+        <a href="{% url 'admin:users' %}" class="btn btn-primary">
+            <i class="fas fa-users me-1"></i>Manage users
+        </a>
+    </div>
+</div>
+
+<div class="card admin-card">
+    <div class="card-header">Recent voice requests</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 table-dark-custom">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Status</th>
+                        <th>Category</th>
+                        <th>Confidence</th>
+                        <th>When</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in recent_voice %}
+                    <tr>
+                        <td><small>{{ r.user.email|default:r.user.username }}</small></td>
+                        <td><span class="badge bg-secondary">{{ r.status }}</span></td>
+                        <td>{{ r.category|default:"—" }}</td>
+                        <td>{% if r.confidence is not None %}{{ r.confidence|floatformat:2 }}{% else %}—{% endif %}</td>
+                        <td>{{ r.created_at|timesince }} ago</td>
+                        <td><a href="{% url 'admin:voice-detail' r.id %}" class="btn btn-sm btn-outline-primary">View</a></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted py-4">No requests yet</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

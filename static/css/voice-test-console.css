@@ -1,0 +1,164 @@
+/* Voice test console — upload / record / job polling */
+
+.vtc-hero {
+  max-width: 56rem;
+}
+
+.vtc-dropzone {
+  border: 2px dashed rgba(13, 110, 253, 0.35);
+  border-radius: 12px;
+  padding: 1.75rem 1.25rem;
+  text-align: center;
+  background: linear-gradient(
+    145deg,
+    rgba(13, 110, 253, 0.04),
+    rgba(99, 102, 241, 0.06)
+  );
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.15s ease;
+  cursor: pointer;
+}
+
+.vtc-dropzone:hover,
+.vtc-dropzone:focus-within {
+  border-color: rgba(13, 110, 253, 0.55);
+  background: linear-gradient(
+    145deg,
+    rgba(13, 110, 253, 0.07),
+    rgba(99, 102, 241, 0.09)
+  );
+}
+
+.vtc-dropzone.vtc-dropzone--active {
+  border-color: #0d6efd;
+  border-style: solid;
+  background: rgba(13, 110, 253, 0.1);
+  transform: scale(1.01);
+}
+
+.vtc-dropzone__icon {
+  font-size: 2rem;
+  color: #0d6efd;
+  opacity: 0.85;
+  margin-bottom: 0.5rem;
+}
+
+.vtc-file-name {
+  font-size: 0.875rem;
+  color: var(--bs-secondary-color, #6c757d);
+  word-break: break-all;
+  min-height: 1.25rem;
+}
+
+.vtc-record-panel {
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--bs-body-bg, #fff);
+  padding: 1rem 1.25rem;
+}
+
+.vtc-wave-wrap {
+  position: relative;
+  height: 72px;
+  border-radius: 8px;
+  background: var(--bs-body-bg, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  margin-top: 0.75rem;
+}
+
+.vtc-wave-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.vtc-wave-label {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(33, 37, 41, 0.45);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.vtc-preview-wrap {
+  border: 1px dashed rgba(13, 110, 253, 0.35);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-top: 0.75rem;
+  background: rgba(13, 110, 253, 0.03);
+}
+
+.vtc-preview-wrap audio {
+  max-height: 40px;
+}
+
+.vtc-timer {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+}
+
+.vtc-shortcuts {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+.vtc-job-bar {
+  font-size: 0.8125rem;
+}
+
+.vtc-pipeline-log {
+  max-height: min(52vh, 560px);
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.vtc-log-entry {
+  animation: vtc-log-in 0.35s ease-out;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 0.65rem 1rem;
+}
+
+@keyframes vtc-log-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vtc-log-entry:last-child {
+  border-bottom: none;
+}
+
+/* Reuse existing log tokens from theme */
+.vtc-pipeline-log .ev-log-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.vtc-pipeline-log .ev-log-lines {
+  margin: 0;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.vtc-status-pill {
+  font-size: 0.75rem;
+}

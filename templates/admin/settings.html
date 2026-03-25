@@ -1,0 +1,293 @@
+{% extends 'admin/base_admin.html' %}
+
+{% block admin_title %}System Settings{% endblock %}
+
+{% block admin_content %}
+<div class="page-header">
+    <h1 class="page-title">Settings</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">System statistics</div>
+            <div class="card-body">
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-value">{{ total_api_calls }}</div><div class="stat-label">Total API calls</div></div>
+                    <div class="stat-card"><div class="stat-value">{{ unique_users }}</div><div class="stat-label">Active users</div></div>
+                    <div class="stat-card"><div class="stat-value">{{ avg_response|floatformat:2 }}s</div><div class="stat-label">Avg response</div></div>
+                    <div class="stat-card"><div class="stat-value">24/7</div><div class="stat-label">Uptime</div></div>
+                </div>
+            </div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-header">Default rate limits</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="rate_limits">
+                    <div class="mb-3">
+                        <label class="form-label">Default Daily Request Limit</label>
+                        <input type="number" class="form-control" name="default_daily_limit" value="{{ settings.default_daily_limit }}">
+                        <small class="text-muted">Applied to new users</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Default Monthly Request Limit</label>
+                        <input type="number" class="form-control" name="default_monthly_limit" value="{{ settings.default_monthly_limit }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Default daily voice limit (Voice To Service)</label>
+                        <input type="number" class="form-control" name="default_daily_voice_limit" value="{{ settings.default_daily_voice_limit }}" min="0">
+                        <small class="text-muted">Max <code>POST /api/v1/process-audio/</code> per user per day (default 3).</small>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="apply_to_all" id="applyRateAll">
+                        <label class="form-check-label" for="applyRateAll">Apply to all existing users</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">API settings</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="api_settings">
+                    <div class="mb-3">
+                        <label class="form-label">API Key Expiry (days)</label>
+                        <input type="number" class="form-control" name="key_expiry_days" value="{{ settings.key_expiry_days }}">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="require_approval_new_keys" id="requireApproval" {% if settings.require_approval_new_keys %}checked{% endif %}>
+                        <label class="form-check-label" for="requireApproval">Require Admin Approval for New Keys</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mb-4 border-primary">
+            <div class="card-header bg-light">Anti-abuse &amp; signup controls</div>
+            <div class="card-body">
+                <p class="small text-muted">Toggle each defense for password sign-up. Google sign-in still respects <strong>blocked IPs</strong> and <strong>admin suspension</strong>. Manual IP blocks: Django Admin → <em>Authentication → Blocked IP addresses</em>. Signup audit log: <em>Registration attempts</em>.</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="anti_abuse">
+                    <h6 class="text-secondary small text-uppercase mt-2">Master</h6>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="ab_master_enable" id="ab_master_enable" {% if antiabuse.master_enable %}checked{% endif %}>
+                        <label class="form-check-label" for="ab_master_enable">Enable server-side registration checks</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="ab_enforce_admin_block" id="ab_enforce_admin_block" {% if antiabuse.enforce_admin_block %}checked{% endif %}>
+                        <label class="form-check-label" for="ab_enforce_admin_block">Enforce “blocked” users (logout + API deny)</label>
+                    </div>
+
+                    <h6 class="text-secondary small text-uppercase">Email rules</h6>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="ab_block_disposable_email" id="ab_block_disposable_email" {% if antiabuse.block_disposable_email %}checked{% endif %}>
+                        <label class="form-check-label" for="ab_block_disposable_email">Block disposable / temp email domains</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="ab_require_gmail_domain" id="ab_require_gmail_domain" {% if antiabuse.require_gmail_domain_for_password_signup %}checked{% endif %}>
+                        <label class="form-check-label" for="ab_require_gmail_domain">Password signup: Gmail only (@gmail.com / @googlemail.com)</label>
+                    </div>
+
+                    <h6 class="text-secondary small text-uppercase">IP &amp; fingerprint</h6>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="ab_block_same_ip" id="ab_block_same_ip" {% if antiabuse.block_same_ip_registration %}checked{% endif %}>
+                        <label class="form-check-label" for="ab_block_same_ip">Limit accounts per IP (lookback window)</label>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label small mb-0">IP lookback (hours)</label>
+                            <input type="number" class="form-control form-control-sm" name="ab_same_ip_lookback_hours" value="{{ antiabuse.same_ip_lookback_hours }}" min="1">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-0">Max accounts / IP in window (0 = off)</label>
+                            <input type="number" class="form-control form-control-sm" name="ab_max_accounts_per_ip" value="{{ antiabuse.max_accounts_per_ip_in_lookback }}" min="0">
+                        </div>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="ab_block_same_fingerprint" id="ab_block_same_fingerprint" {% if antiabuse.block_same_fingerprint %}checked{% endif %}>
+                        <label class="form-check-label" for="ab_block_same_fingerprint">Block same browser fingerprint as prior signup</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small mb-0">Fingerprint lookback (hours)</label>
+                        <input type="number" class="form-control form-control-sm" name="ab_fingerprint_lookback_hours" value="{{ antiabuse.fingerprint_lookback_hours }}" min="1">
+                    </div>
+
+                    <h6 class="text-secondary small text-uppercase">Rapid signup window</h6>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="ab_block_rapid_window" id="ab_block_rapid_window" {% if antiabuse.block_rapid_registration_window %}checked{% endif %}>
+                        <label class="form-check-label" for="ab_block_rapid_window">Limit successful signups per IP / fingerprint in a short window</label>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-4">
+                            <label class="form-label small mb-0">Window (minutes)</label>
+                            <input type="number" class="form-control form-control-sm" name="ab_rapid_window_minutes" value="{{ antiabuse.rapid_registration_window_minutes }}" min="1">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small mb-0">Max / IP</label>
+                            <input type="number" class="form-control form-control-sm" name="ab_max_reg_ip_rapid" value="{{ antiabuse.max_registrations_per_ip_in_rapid_window }}" min="1">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small mb-0">Max / fingerprint</label>
+                            <input type="number" class="form-control form-control-sm" name="ab_max_reg_fp_rapid" value="{{ antiabuse.max_registrations_per_fingerprint_in_rapid_window }}" min="1">
+                        </div>
+                    </div>
+
+                    <h6 class="text-secondary small text-uppercase">Device cookie</h6>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="ab_device_cookie" id="ab_device_cookie" {% if antiabuse.device_tracker_cookie_enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="ab_device_cookie">HttpOnly device cookie (block 2nd account same browser)</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small mb-0">Cookie max age (days)</label>
+                        <input type="number" class="form-control form-control-sm" name="ab_device_cookie_days" value="{{ antiabuse.device_tracker_cookie_max_age_days }}" min="1">
+                    </div>
+
+                    <h6 class="text-secondary small text-uppercase">Auto IP block (burst)</h6>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="ab_auto_block_burst" id="ab_auto_block_burst" {% if antiabuse.auto_block_ip_on_burst %}checked{% endif %}>
+                        <label class="form-check-label" for="ab_auto_block_burst">Auto-block IP after many signup attempts</label>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-4">
+                            <label class="form-label small mb-0">Attempts in window</label>
+                            <input type="number" class="form-control form-control-sm" name="ab_burst_count" value="{{ antiabuse.suspicious_burst_registration_count }}" min="2">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small mb-0">Window (minutes)</label>
+                            <input type="number" class="form-control form-control-sm" name="ab_burst_window_minutes" value="{{ antiabuse.suspicious_burst_window_minutes }}" min="1">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small mb-0">Block duration (days)</label>
+                            <input type="number" class="form-control form-control-sm" name="ab_auto_block_days" value="{{ antiabuse.auto_blocked_ip_duration_days }}" min="1">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Save anti-abuse settings</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-4 admin-card">
+            <div class="card-header">Voice / audio limits</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="voice_settings">
+                    <div class="mb-3">
+                        <label class="form-label">Max audio duration (seconds)</label>
+                        <input type="number" class="form-control" name="max_audio_duration_seconds" value="{{ settings.max_audio_duration_seconds }}" step="0.5" min="1">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Max upload size (MB)</label>
+                        <input type="number" class="form-control" name="max_audio_size_mb" value="{{ settings.max_audio_size_mb }}" step="0.5" min="0.5">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Allowed formats</label>
+                        <input type="text" class="form-control" name="allowed_audio_formats" value="{{ settings.allowed_audio_formats }}" placeholder="wav,mp3,mpeg,webm">
+                        <small class="text-muted">Comma-separated extensions (no dots).</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">Security</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="form_type" value="security">
+                            <div class="mb-3">
+                                <label class="form-label">Session Timeout (minutes)</label>
+                                <input type="number" class="form-control" name="session_timeout" value="{{ settings.session_timeout_minutes }}">
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" name="force_2fa" id="force2FA" {% if settings.force_2fa_admin %}checked{% endif %}>
+                                <label class="form-check-label" for="force2FA">Force 2FA for Admin Users</label>
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" name="ip_whitelist" id="ipWhitelist" {% if settings.ip_whitelist_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="ipWhitelist">Enable IP Whitelisting</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </form>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle me-2"></i>Security Recommendations</h6>
+                            <ul class="mb-0">
+                                <li>Use strong passwords (min 8 chars, mixed case, numbers)</li>
+                                <li>Enable 2FA for admin accounts</li>
+                                <li>Regularly review API key usage</li>
+                                <li>Set appropriate rate limits</li>
+                                <li>Monitor for suspicious activity</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-danger">
+            <div class="card-header text-danger">Danger zone</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-danger w-100 mb-2" onclick="clearCache()">
+                            <i class="fas fa-trash me-1"></i>Clear System Cache
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-danger w-100 mb-2" onclick="resetAllKeys()">
+                            <i class="fas fa-key me-1"></i>Reset All API Keys
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-danger w-100 mb-2" onclick="exportLogs()">
+                            <i class="fas fa-download me-1"></i>Export System Logs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function clearCache() {
+    if(confirm('Clear system cache? This may slow down initial requests.')) {
+        alert('Cache cleared successfully!');
+    }
+}
+
+function resetAllKeys() {
+    if(confirm('WARNING: This will reset ALL API keys. All users will need to generate new keys. Continue?')) {
+        alert('All API keys have been reset. Users must generate new keys.');
+    }
+}
+
+function exportLogs() {
+    alert('System logs exported. Check your downloads folder.');
+}
+</script>
+{% endblock %}

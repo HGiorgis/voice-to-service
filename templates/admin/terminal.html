@@ -1,0 +1,195 @@
+{% extends 'admin/base_admin.html' %}
+{% load static %}
+
+{% block admin_title %}Terminal{% endblock %}
+
+{% block admin_content %}
+<div class="terminal-page">
+    <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <h1 class="page-title mb-0">
+            <i class="fas fa-terminal text-success me-2"></i>Container Terminal
+        </h1>
+        <small class="text-muted" id="terminalStatus">Interactive shell — connect to run commands (e.g. python manage.py createsuperuser).</small>
+    </div>
+
+    <div class="terminal-container">
+        <div class="terminal-toolbar">
+            <span class="terminal-dot bg-danger"></span>
+            <span class="terminal-dot bg-warning"></span>
+            <span class="terminal-dot bg-success"></span>
+            <span class="terminal-title">voice-to-service — /app</span>
+            <span class="terminal-badge ms-auto" id="wsBadge">connecting...</span>
+        </div>
+        <div class="terminal-body">
+            <div class="terminal-output" id="terminalOutput">
+                <div class="terminal-line">
+                    <span class="terminal-welcome">Connecting to shell...</span>
+                </div>
+            </div>
+            <form class="terminal-form" id="terminalForm" autocomplete="off">
+                <span class="terminal-prompt">$</span>
+                <input type="text" class="terminal-input" id="terminalInput" placeholder="Type a command (e.g. python manage.py createsuperuser)..." spellcheck="false" disabled />
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.terminal-page { padding-bottom: 2rem; }
+.terminal-container {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.06);
+    background: #0d1117;
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+}
+.terminal-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+}
+.terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+.terminal-title { margin-left: 12px; font-size: 13px; color: #8b949e; }
+.terminal-badge { font-size: 11px; color: #8b949e; }
+.terminal-badge.connected { color: #3fb950; }
+.terminal-badge.error { color: #ff7b72; }
+.terminal-body {
+    padding: 16px;
+    min-height: 380px;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+}
+.terminal-output {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    margin-bottom: 8px;
+    scroll-behavior: smooth;
+}
+.terminal-output::-webkit-scrollbar { width: 10px; height: 10px; }
+.terminal-output::-webkit-scrollbar-track { background: #161b22; border-radius: 4px; }
+.terminal-output::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+.terminal-line {
+    font-size: 14px;
+    line-height: 1.6;
+    word-break: break-all;
+    padding: 2px 0;
+    white-space: pre-wrap;
+}
+.terminal-prompt { color: #3fb950; margin-right: 8px; font-weight: 600; }
+.terminal-welcome { color: #8b949e; }
+.terminal-cmd { color: #e6edf3; }
+.terminal-stdout { color: #a5d6ff; }
+.terminal-stderr { color: #ff7b72; }
+.terminal-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 4px;
+    border-top: 1px solid #21262d;
+}
+.terminal-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #e6edf3;
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+}
+.terminal-input::placeholder { color: #484f58; }
+.terminal-input:disabled { opacity: 0.7; }
+</style>
+
+<script>
+(function() {
+    const form = document.getElementById('terminalForm');
+    const input = document.getElementById('terminalInput');
+    const output = document.getElementById('terminalOutput');
+    const wsBadge = document.getElementById('wsBadge');
+    const terminalStatus = document.getElementById('terminalStatus');
+
+    function escapeHtml(s) {
+        const div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+    }
+
+    function appendText(text) {
+        if (!text) return;
+        var last = output.lastElementChild;
+        if (last && last.classList.contains('terminal-line') && !last.classList.contains('terminal-prompt-line')) {
+            var span = last.querySelector('.terminal-out');
+            if (span) {
+                span.textContent += text;
+                output.scrollTop = output.scrollHeight;
+                return;
+            }
+        }
+        var line = document.createElement('div');
+        line.className = 'terminal-line terminal-stdout';
+        var span = document.createElement('span');
+        span.className = 'terminal-out';
+        span.textContent = text;
+        line.appendChild(span);
+        output.appendChild(line);
+        output.scrollTop = output.scrollHeight;
+    }
+
+    function setConnected(connected, err) {
+        if (connected) {
+            wsBadge.textContent = 'connected';
+            wsBadge.classList.add('connected');
+            wsBadge.classList.remove('error');
+            input.disabled = false;
+            input.focus();
+            terminalStatus.textContent = 'Interactive shell. Run any command (e.g. python manage.py createsuperuser).';
+        } else {
+            wsBadge.textContent = err ? 'disconnected' : 'connecting...';
+            wsBadge.classList.remove('connected');
+            if (err) wsBadge.classList.add('error');
+            input.disabled = true;
+            if (err) terminalStatus.textContent = 'Connection failed. Start the app with daphne for interactive terminal.';
+        }
+    }
+
+    var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var wsUrl = protocol + '//' + window.location.host + '/ws/admin/terminal/';
+    var ws = new WebSocket(wsUrl);
+
+    ws.onopen = function() {
+        setConnected(true);
+        output.innerHTML = '';
+    };
+
+    ws.onmessage = function(ev) {
+        appendText(ev.data);
+    };
+
+    ws.onclose = function() {
+        setConnected(false, true);
+        appendText('\r\n[Connection closed.]\r\n');
+    };
+
+    ws.onerror = function() {
+        setConnected(false, true);
+    };
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var cmd = input.value;
+        if (!cmd && ws.readyState === WebSocket.OPEN) return;
+        input.value = '';
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(cmd + '\n');
+        }
+    });
+
+    input.focus();
+})();
+</script>
+{% endblock %}

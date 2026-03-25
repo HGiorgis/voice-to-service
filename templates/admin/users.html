@@ -1,0 +1,96 @@
+{% extends 'admin/base_admin.html' %}
+
+{% block admin_title %}User Management{% endblock %}
+
+{% block admin_content %}
+<div class="page-header">
+    <h1 class="page-title">Users</h1>
+    <div class="d-flex align-items-center gap-2">
+        <input type="text" id="searchInput" class="form-control" style="max-width: 260px;" placeholder="Search users…">
+        <span class="badge bg-secondary">{{ users.count }} users</span>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        All registered users
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover" id="usersTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Company</th>
+                        <th>Status</th>
+                        <th>API Key</th>
+                        <th>API Calls</th>
+                        <th>Voice requests</th>
+                        <th>Joined</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <strong>{{ user.username }}</strong>
+                            {% if user.is_staff %}
+                                <span class="badge bg-danger ms-1">Admin</span>
+                            {% endif %}
+                            {% if user.is_superuser %}
+                                <span class="badge bg-dark ms-1">Super</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.email }}</td>
+                        <td>{{ user.company_name|default:'-' }}</td>
+                        <td>
+                            {% if user.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                            {% if user.is_verified %}
+                                <span class="badge bg-info">Verified</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.api_key %}
+                                <span class="badge bg-success">Active</span>
+                                <small class="d-block text-muted">{{ user.api_key.key_preview }}</small>
+                                <small class="d-block">Calls: {{ user.api_key.total_requests }}</small>
+                            {% else %}
+                                <span class="badge bg-secondary">No Key</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">{{ user.api_calls|default:0 }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-warning">{{ user.voice_count|default:0 }}</span>
+                        </td>
+                        <td>
+                            <small>{{ user.date_joined|date:"Y-m-d" }}</small><br>
+                            <small class="text-muted">{{ user.date_joined|timesince }} ago</small>
+                        </td>
+                        <td>
+                            <a href="{% url 'admin:user-detail' user.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i> View
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">
+                            <i class="fas fa-users fa-3x mb-3"></i><br>
+                            No users found
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

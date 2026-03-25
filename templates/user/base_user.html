@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}User - {% block user_title %}{% endblock %}{% endblock %}
+
+{% block content %}
+<div class="app-layout has-sidebar">
+    <aside class="app-sidebar" id="app-sidebar">
+        <p class="sidebar-title">Dashboard</p>
+        <nav class="nav flex-column">
+            <a href="{% url 'user:dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                <i class="fas fa-tachometer-alt"></i>Dashboard
+            </a>
+            <a href="{% url 'user:usage' %}" class="nav-link {% if request.resolver_match.url_name == 'usage' %}active{% endif %}">
+                <i class="fas fa-chart-bar"></i>Usage
+            </a>
+            <a href="{% url 'user:test' %}" class="nav-link {% if request.resolver_match.url_name == 'test' %}active{% endif %}">
+                <i class="fas fa-microphone"></i>Test audio
+            </a>
+            <a href="{% url 'user:profile' %}" class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                <i class="fas fa-user"></i>Profile
+            </a>
+        </nav>
+    </aside>
+    <div class="app-main">
+        {% block user_content %}{% endblock %}
+    </div>
+</div>
+{% endblock %}

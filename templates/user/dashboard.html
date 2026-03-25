@@ -1,0 +1,206 @@
+{% extends 'user/base_user.html' %}
+
+{% block user_title %}Dashboard{% endblock %}
+
+{% block user_content %}
+<h1 class="page-title mb-1">API keys</h1>
+<p class="page-subtitle">Manage your API key for Voice To Service. Do not share your key or expose it in client-side code.</p>
+
+<div class="d-flex justify-content-end mb-4">
+    {% if api_key %}
+    <a href="{% url 'user:generate-key' %}" class="btn btn-primary" onclick="return confirm('Generate a new key? Your current key will stop working.');">
+        <i class="fas fa-plus me-2"></i>Create new secret key
+    </a>
+    {% else %}
+    <a href="{% url 'user:generate-key' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-2"></i>Create new secret key
+    </a>
+    {% endif %}
+</div>
+
+{% if api_key %}
+<div class="card mb-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Key preview</th>
+                        <th>Total calls</th>
+                        <th>Today</th>
+                        <th>Days left</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>{{ api_key.name|default:"Default" }}</strong></td>
+                        <td><code class="text-secondary">{{ api_key.key_preview }}</code></td>
+                        <td>{{ stats.total_calls }}</td>
+                        <td>{{ stats.calls_today }}</td>
+                        <td>{% if stats.expires_in %}{{ stats.expires_in }}{% else %}—{% endif %}</td>
+                        <td>
+                            <form method="post" action="{% url 'user:revoke-key' %}" class="d-inline" onsubmit="return confirm('Revoke this API key? You will need to create a new one.');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Revoke key"><i class="fas fa-trash-alt"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card mb-4">
+    <div class="empty-state">
+        <div class="empty-icon"><i class="fas fa-key"></i></div>
+        <p class="empty-title">No API key yet</p>
+        <p class="empty-desc">Create a secret key to call the voice intelligence API.</p>
+        <a href="{% url 'user:generate-key' %}" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Create new secret key</a>
+    </div>
+</div>
+{% endif %}
+
+{% if api_key and stats %}
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-secondary">Voice today</span>
+                    <span class="fw-bold">{{ voice_today }} / {{ voice_limit }}</span>
+                </div>
+                <div class="progress mt-2" style="height: 6px;">
+                    <div class="progress-bar bg-info" role="progressbar" style="width: {% if voice_limit > 0 %}{% widthratio voice_today voice_limit 100 %}{% else %}0{% endif %}%;"></div>
+                </div>
+                <small class="text-muted">POST process-audio (resets midnight UTC)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-secondary">API calls today</span>
+                    <span class="fw-bold">{{ stats.calls_today }} / {{ stats.daily_limit }}</span>
+                </div>
+                <div class="progress mt-2" style="height: 6px;">
+                    <div class="progress-bar" role="progressbar" style="width: {% if stats.daily_limit > 0 %}{% widthratio stats.calls_today stats.daily_limit 100 %}{% else %}0{% endif %}%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-secondary">API calls this month</span>
+                    <span class="fw-bold">{{ stats.calls_this_month }} / {{ stats.monthly_limit }}</span>
+                </div>
+                <div class="progress mt-2" style="height: 6px;">
+                    <div class="progress-bar" role="progressbar" style="width: {% if stats.monthly_limit > 0 %}{% widthratio stats.calls_this_month stats.monthly_limit 100 %}{% else %}0{% endif %}%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Recent activity</span>
+                <a href="{% url 'user:usage' %}" class="btn btn-sm btn-outline-secondary">View all</a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_logs %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Endpoint</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_logs %}
+                            <tr>
+                                <td class="text-secondary">{{ log.timestamp|timesince }} ago</td>
+                                <td><code class="small">{{ log.endpoint }}</code></td>
+                                <td><span class="badge bg-{% if log.status_code == 200 %}success{% else %}danger{% endif %}">{{ log.status_code }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state py-4">
+                    <p class="empty-desc mb-0">No API calls yet.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header">API docs</div>
+            <div class="card-body">
+                <p class="text-secondary small mb-3">Use <code>X-API-Key</code> or <code>Authorization: Bearer &lt;key&gt;</code>. Base: <code>/api/v1/</code></p>
+                <h6 class="fw-bold mt-3 mb-2">Process audio</h6>
+                <div class="code-block mb-3">
+                    <button type="button" class="copy-btn" onclick="copyToClipboard('POST /api/v1/process-audio/')"><i class="fas fa-copy me-1"></i>Copy</button>
+                    <pre><code><span class="code-keyword">POST</span> <span class="code-url">/api/v1/process-audio/</span>
+<span class="code-keyword">Headers:</span> <span class="code-var">X-API-Key</span>: your-secret-key
+<span class="code-keyword">Body:</span> multipart/form-data — field <span class="code-var">audio</span> (wav/mp3)</code></pre>
+                </div>
+                <p class="small text-muted mb-0">Response: <code>amharic_text</code>, <code>english_text</code>, <code>category</code>, <code>confidence</code>, <code>timestamp</code>.</p>
+                <a href="{% url 'user:usage' %}" class="btn btn-sm btn-outline-primary mt-2">View usage</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">Quickstart example</div>
+    <div class="card-body">
+        <p class="text-secondary small mb-3">Python with <code>requests</code>:</p>
+        <div class="code-block">
+            <button type="button" class="copy-btn" onclick="copyToClipboard(document.querySelector('#quickstart-code').innerText)"><i class="fas fa-copy me-1"></i>Copy</button>
+            <pre id="quickstart-code" class="mb-0"><code><span class="code-keyword">import</span> requests
+
+<span class="code-var">url</span> = <span class="code-string">"https://your-domain.com/api/v1/process-audio/"</span>
+<span class="code-var">headers</span> = {<span class="code-string">"X-API-Key"</span>: <span class="code-string">"your-secret-key"</span>}
+<span class="code-var">files</span> = {<span class="code-string">"audio"</span>: open(<span class="code-string">"clip.wav"</span>, <span class="code-string">"rb"</span>)}
+<span class="code-keyword">r</span> = requests.post(url, headers=headers, files=files)
+<span class="code-keyword">print</span>(r.json())</code></pre>
+        </div>
+    </div>
+</div>
+
+{% if new_api_key %}
+<div class="modal fade show d-block" id="secretKeyModal" tabindex="-1" style="background: rgba(0,0,0,0.4);">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Your new secret key</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="document.getElementById('secretKeyModal').classList.remove('show','d-block');"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-secondary small">Copy your key now. For security, we won't show it again.</p>
+                <div class="secret-key-display">
+                    <span class="key-text" id="newKeyValue">{{ new_api_key }}</span>
+                    <button type="button" class="btn-copy-key" onclick="copyToClipboard(document.getElementById('newKeyValue').textContent);"><i class="fas fa-copy me-1"></i>Copy key</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('secretKeyModal').classList.remove('show','d-block');">Done</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

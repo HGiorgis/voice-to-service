@@ -1,0 +1,241 @@
+{% extends 'admin/base_admin.html' %}
+
+{% block admin_title %}User Details{% endblock %}
+
+{% block admin_content %}
+<div class="page-header">
+    <h1 class="page-title">
+        {{ target_user.username }}
+        {% if target_user.is_staff %}<span class="badge bg-danger ms-2">Admin</span>{% endif %}
+        {% if target_user.is_superuser %}<span class="badge bg-secondary ms-2">Superuser</span>{% endif %}
+    </h1>
+    <a href="{% url 'admin:users' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Back to users
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">User information</div>
+            <div class="card-body">
+                <table class="info-table">
+                    <tr><th>Username</th><td>{{ target_user.username }}</td></tr>
+                    <tr><th>Email</th><td>{{ target_user.email }}</td></tr>
+                    <tr><th>Company</th><td>{{ target_user.company_name|default:'—' }}</td></tr>
+                    <tr><th>Phone</th><td>{{ target_user.phone|default:'—' }}</td></tr>
+                    <tr><th>Joined</th><td>{{ target_user.date_joined|date:"M j, Y H:i" }}</td></tr>
+                    <tr><th>Last login</th><td>{% if target_user.last_login %}{{ target_user.last_login|timesince }} ago{% else %}Never{% endif %}</td></tr>
+                    <tr><th>Status</th>
+                        <td>
+                            {% if target_user.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}
+                            {% if target_user.is_verified %}<span class="badge bg-info ms-1">Verified</span>{% else %}<span class="badge bg-warning ms-1">Unverified</span>{% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">Rate limits</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Daily Request Limit</label>
+                        <input type="number" name="daily_limit" class="form-control" 
+                               value="{{ target_user.daily_request_limit }}">
+                        <small class="text-muted">Current usage today: {{ api_key.requests_today|default:0 }}</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Monthly Request Limit</label>
+                        <input type="number" name="monthly_limit" class="form-control" 
+                               value="{{ target_user.monthly_request_limit }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Daily voice limit (Voice To Service)</label>
+                        <input type="number" name="daily_voice_limit" class="form-control" min="0"
+                               value="{{ target_user.daily_voice_limit }}">
+                        <small class="text-muted">Max process-audio calls per calendar day.</small>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" name="is_active" class="form-check-input" id="isActive" 
+                               {% if target_user.is_active %}checked{% endif %}>
+                        <label class="form-check-label" for="isActive">Account Active</label>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" name="is_verified" class="form-check-input" id="isVerified" 
+                               {% if target_user.is_verified %}checked{% endif %}>
+                        <label class="form-check-label" for="isVerified">Verified User</label>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">Save changes</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">API key</div>
+            <div class="card-body">
+                {% if api_key %}
+                    <div class="mb-3">
+                        <label class="form-label">Key Preview:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" value="{{ api_key.key_preview }}" readonly>
+                            <button type="button" class="btn btn-outline-secondary" onclick="copyKey('{{ api_key.key }}')">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Status:</th>
+                            <td>
+                                {% if api_key.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Created:</th>
+                            <td>{{ api_key.created_at|date:"Y-m-d" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Expires:</th>
+                            <td>
+                                {% if api_key.expires_at %}
+                                    {{ api_key.expires_at|date:"Y-m-d" }}
+                                    ({{ api_key.expires_at|timeuntil }})
+                                {% else %}
+                                    Never
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Total Calls:</th>
+                            <td>{{ api_key.total_requests }}</td>
+                        </tr>
+                        <tr>
+                            <th>Calls Today:</th>
+                            <td>{{ api_key.requests_today }}</td>
+                        </tr>
+                        <tr>
+                            <th>Last Used:</th>
+                            <td>
+                                {% if api_key.last_used_at %}
+                                    {{ api_key.last_used_at|timesince }} ago
+                                {% else %}
+                                    Never
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <form method="post" action="{% url 'admin:revoke-key' target_user.id %}" 
+                          onsubmit="return confirm('Revoke this API key? User will need to generate a new one.')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger w-100">
+                            <i class="fas fa-trash me-1"></i>Revoke API Key
+                        </button>
+                    </form>
+                    
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-key fa-3x text-muted mb-3"></i>
+                        <p>No API key generated yet</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column -->
+    <div class="col-md-8">
+        <div class="card mb-4 admin-card">
+            <div class="card-header">Voice requests</div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-dark-custom">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Status</th>
+                                <th>Category</th>
+                                <th>Confidence</th>
+                                <th>When</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for vr in voice_requests %}
+                            <tr>
+                                <td><small>{{ vr.id|truncatechars:8 }}</small></td>
+                                <td><span class="badge bg-secondary">{{ vr.status }}</span></td>
+                                <td>{{ vr.category|default:"—" }}</td>
+                                <td>{% if vr.confidence is not None %}{{ vr.confidence|floatformat:2 }}{% else %}—{% endif %}</td>
+                                <td><small>{{ vr.created_at|timesince }} ago</small></td>
+                                <td>
+                                    <a href="{% url 'admin:voice-detail' vr.id %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">No voice requests yet</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">Recent API calls</div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Endpoint</th>
+                                <th>Method</th>
+                                <th>Status</th>
+                                <th>Response Time</th>
+                                <th>IP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in api_logs %}
+                            <tr>
+                                <td><small>{{ log.timestamp|date:"M j, H:i" }}</small></td>
+                                <td><code class="small text-truncate d-inline-block" style="max-width: 180px;">{{ log.endpoint }}</code></td>
+                                <td><span class="badge bg-secondary">{{ log.method }}</span></td>
+                                <td>
+                                    <span class="badge bg-{% if log.status_code == 200 %}success{% else %}danger{% endif %}">{{ log.status_code }}</span>
+                                </td>
+                                <td>{{ log.response_time|floatformat:2 }}s</td>
+                                <td><small>{{ log.ip_address|default:"—" }}</small></td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">
+                                    No API calls yet
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

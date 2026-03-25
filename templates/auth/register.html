@@ -1,0 +1,106 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/voice-to-service-logo.svg' %}">
+    <title>Create account — Voice To Service</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/voice-to-service-theme.css' %}">
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-container">
+            <div class="auth-logo">
+                <a href="{% url 'auth:login' %}">
+                    <img src="{% static 'images/voice-to-service-logo.svg' %}" alt="" width="42" height="42" class="logo-icon-img">
+                    <span class="logo-text">Voice To Service</span>
+                </a>
+            </div>
+            <h1 class="auth-title">Create your account</h1>
+            <p class="auth-subtitle">Get your API key for Amharic voice intelligence.</p>
+            <div class="auth-card">
+                {% if google_oauth_enabled %}
+                <a class="btn btn-outline-dark w-100 mb-3 d-flex align-items-center justify-content-center gap-2" href="{% url 'social:begin' 'google-oauth2' %}">
+                    <i class="fab fa-google"></i> Continue with Google
+                </a>
+                <p class="small text-muted text-center mb-3">Recommended — verified email, fewer signup limits.</p>
+                <div class="auth-divider"></div>
+                <p class="small text-center text-muted mb-3">Or register with email and password</p>
+                {% endif %}
+
+                <div id="vts-soft-warn" class="alert alert-warning small py-2 d-none" role="status">
+                    This browser already completed a sign-up before. Creating extra accounts may be blocked.
+                </div>
+
+                <form method="post" action="{% url 'auth:register' %}" id="vts-register-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="client_fingerprint" id="client_fingerprint" value="">
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger small">{{ form.non_field_errors }}</div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label" for="id_username">Username</label>
+                        <input type="text" name="username" id="id_username" class="form-control" placeholder="Choose a username" required autofocus value="{{ form.username.value|default:'' }}">
+                        {% if form.username.errors %}<div class="text-danger small">{{ form.username.errors }}</div>{% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="id_email">Email</label>
+                        <input type="email" name="email" id="id_email" class="form-control" placeholder="you@gmail.com" required value="{{ form.email.value|default:'' }}">
+                        {% if form.email.errors %}<div class="text-danger small">{{ form.email.errors }}</div>{% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="id_password1">Password</label>
+                        <input type="password" name="password1" id="id_password1" class="form-control" placeholder="Create a password" required>
+                        {% if form.password1.errors %}<div class="text-danger small">{{ form.password1.errors }}</div>{% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="id_password2">Confirm password</label>
+                        <input type="password" name="password2" id="id_password2" class="form-control" placeholder="Confirm your password" required>
+                        {% if form.password2.errors %}<div class="text-danger small">{{ form.password2.errors }}</div>{% endif %}
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Create account</button>
+                </form>
+                <div class="auth-divider"></div>
+                <p class="auth-footer">
+                    Already have an account? <a href="{% url 'auth:login' %}">Log in</a>
+                </p>
+            </div>
+        </div>
+    </div>
+    <div id="toast-container" class="toast-container"></div>
+    {% if messages %}
+    <div id="django-messages-toasts" style="display:none" aria-hidden="true">
+        {% for message in messages %}
+        <div data-tag="{{ message.tags }}" data-message="{{ message|escape }}"></div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/main.js' %}"></script>
+    <script>
+    (function () {
+        try {
+            if (localStorage.getItem('vts_reg_done') === '1') {
+                var w = document.getElementById('vts-soft-warn');
+                if (w) w.classList.remove('d-none');
+            }
+        } catch (e) {}
+        var input = document.getElementById('client_fingerprint');
+        if (!input) return;
+        var s = [navigator.userAgent, screen.width, screen.height, screen.colorDepth, new Date().getTimezoneOffset(), navigator.language || '', navigator.hardwareConcurrency || 0].join('|');
+        var h = 0;
+        for (var i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i) | 0;
+        input.value = 'fp1:' + h.toString(16) + ':' + (navigator.deviceMemory || 0);
+        var f = document.getElementById('vts-register-form');
+        if (f) f.addEventListener('submit', function () {
+            try { localStorage.setItem('vts_reg_done', '1'); } catch (e) {}
+        });
+    })();
+    </script>
+</body>
+</html>

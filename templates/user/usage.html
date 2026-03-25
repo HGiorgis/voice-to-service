@@ -1,0 +1,155 @@
+{% extends 'user/base_user.html' %}
+{% load static %}
+
+{% block user_title %}Usage{% endblock %}
+
+{% block user_content %}
+<h1 class="page-title mb-1">Usage</h1>
+<p class="page-subtitle">API usage and request history for your account.</p>
+
+<div class="stats-grid mb-4">
+    <div class="stat-card">
+        <div class="stat-value">{{ total_calls }}</div>
+        <div class="stat-label">Total requests</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ success_calls }}</div>
+        <div class="stat-label">Successful</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ failed_calls }}</div>
+        <div class="stat-label">Failed</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ avg_response|floatformat:2 }}s</div>
+        <div class="stat-label">Avg response</div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body py-3">
+                <span class="text-secondary">Voice today:</span> <strong>{{ voice_today }} / {{ voice_limit }}</strong>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body py-3">
+                <span class="text-secondary">API today:</span> <strong>{{ calls_today }} / {{ daily_limit }}</strong>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body py-3">
+                <span class="text-secondary">API this month:</span> <strong>{{ calls_this_month }} / {{ monthly_limit }}</strong>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Requests over time</div>
+    <div class="card-body">
+        <div class="usage-chart-wrap" style="height: 220px;">
+            <canvas id="usageChart" aria-label="API requests per day"></canvas>
+        </div>
+        <p class="text-muted small mb-0 mt-2">Last 14 days — requests per day</p>
+    </div>
+</div>
+<script id="chart-labels" type="application/json">{{ chart_labels_json|safe }}</script>
+<script id="chart-values" type="application/json">{{ chart_values_json|safe }}</script>
+
+<ul class="nav nav-tabs white-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link active" href="#">API calls</a>
+    </li>
+</ul>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Endpoint</th>
+                        <th>Method</th>
+                        <th>Status</th>
+                        <th>Response time</th>
+                        <th>IP address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="text-secondary">{{ log.timestamp|date:"M j, Y H:i" }}</td>
+                        <td><code class="small">{{ log.endpoint }}</code></td>
+                        <td>{{ log.method }}</td>
+                        <td><span class="badge bg-{% if log.status_code == 200 or log.status_code == 201 %}success{% else %}danger{% endif %}">{{ log.status_code }}</span></td>
+                        <td>{{ log.response_time|floatformat:2 }}s</td>
+                        <td class="text-secondary small">{{ log.ip_address }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state py-5">
+                                <p class="empty-desc mb-0">There is no usage data for this period.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  var ctx = document.getElementById('usageChart');
+  if (!ctx || typeof Chart === 'undefined') return;
+  var labels = [];
+  var values = [];
+  try {
+    var labelsEl = document.getElementById('chart-labels');
+    var valuesEl = document.getElementById('chart-values');
+    if (labelsEl && labelsEl.textContent) labels = JSON.parse(labelsEl.textContent);
+    if (valuesEl && valuesEl.textContent) values = JSON.parse(valuesEl.textContent);
+  } catch (e) {}
+  if (!Array.isArray(values) || values.length === 0) values = Array(labels.length || 14).fill(0);
+  if (!Array.isArray(labels) || labels.length === 0) labels = Array(14).fill('');
+  values = values.map(function(v) { return typeof v === 'number' ? v : parseInt(v, 10) || 0; });
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Requests',
+        data: values,
+        backgroundColor: 'rgba(23, 23, 23, 0.12)',
+        borderColor: 'rgb(23, 23, 23)',
+        borderWidth: 1,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 1 }
+        }
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}

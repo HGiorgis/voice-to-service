@@ -1,0 +1,122 @@
+{% extends 'user/base_user.html' %}
+
+{% block user_title %}Profile{% endblock %}
+
+{% block user_content %}
+<div class="profile-page">
+    <h1 class="page-title mb-1">Profile</h1>
+    <p class="page-subtitle">Manage your account and security in one place.</p>
+
+    <div class="profile-tabs mb-4">
+        <a href="?section=account" class="profile-tab {% if active_section != 'password' %}active{% endif %}" data-section="account">
+            <i class="fas fa-user-circle me-2"></i>Account
+        </a>
+        <a href="?section=password" class="profile-tab {% if active_section == 'password' %}active{% endif %}" data-section="password">
+            <i class="fas fa-lock me-2"></i>Change password
+        </a>
+    </div>
+
+    <section id="section-account" class="profile-section {% if active_section == 'password' %}d-none{% endif %}">
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <div class="card profile-avatar-card h-100">
+                    <div class="card-body text-center py-4">
+                        <div class="avatar-circle mb-3">
+                            <i class="fas fa-user fa-2x text-secondary"></i>
+                        </div>
+                        <h5 class="mb-1">{{ user.username }}</h5>
+                        <p class="text-secondary small mb-2">{{ user.email }}</p>
+                        <span class="badge bg-success">Active</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">Account information</div>
+                    <div class="card-body">
+                        <form method="post" action="{% url 'user:profile' %}">
+                            {% csrf_token %}
+                            {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Username</label>
+                                    <input type="text" class="form-control" value="{{ user.username }}" readonly>
+                                    <small class="text-muted">Username cannot be changed.</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" name="email" value="{{ form.email.value|default:user.email }}" placeholder="you@example.com">
+                                    {% if form.email.errors %}<div class="invalid-feedback d-block">{{ form.email.errors.0 }}</div>{% endif %}
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Company name</label>
+                                    <input type="text" class="form-control" name="company_name" value="{{ form.company_name.value|default:user.company_name|default:'' }}" placeholder="Optional">
+                                    {% if form.company_name.errors %}<div class="invalid-feedback d-block">{{ form.company_name.errors.0 }}</div>{% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Phone</label>
+                                    <input type="text" class="form-control" name="phone" value="{{ form.phone.value|default:user.phone|default:'' }}" placeholder="Optional">
+                                    {% if form.phone.errors %}<div class="invalid-feedback d-block">{{ form.phone.errors.0 }}</div>{% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Member since</label>
+                                    <input type="text" class="form-control" value="{{ user.date_joined|date:"F j, Y" }}" readonly>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary mt-3">Save changes</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="section-password" class="profile-section {% if active_section != 'password' %}d-none{% endif %}">
+        <div class="card profile-password-card">
+            <div class="card-header">
+                <i class="fas fa-lock me-2"></i>Update your password
+            </div>
+            <div class="card-body">
+                <p class="text-secondary small mb-4">Use a strong password that you don't use elsewhere.</p>
+                <form method="post" action="{% url 'user:change-password' %}" class="profile-password-form">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Current password</label>
+                            <input type="password" class="form-control" name="current_password" required placeholder="Enter current password" autocomplete="current-password">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">New password</label>
+                            <input type="password" class="form-control" name="new_password" required placeholder="Enter new password" autocomplete="new-password">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Confirm new password</label>
+                            <input type="password" class="form-control" name="confirm_password" required placeholder="Confirm new password" autocomplete="new-password">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3">Update password</button>
+                </form>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script>
+(function() {
+  var tabs = document.querySelectorAll('.profile-tab');
+  var sections = document.querySelectorAll('.profile-section');
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function(e) {
+      e.preventDefault();
+      var section = this.getAttribute('data-section');
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      this.classList.add('active');
+      sections.forEach(function(s) {
+        s.classList.toggle('d-none', s.id !== 'section-' + section);
+      });
+      history.replaceState(null, '', '?section=' + section);
+    });
+  });
+})();
+</script>
+{% endblock %}

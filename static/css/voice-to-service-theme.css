@@ -1,0 +1,538 @@
+/**
+ * Voice To Service — clean white mode + purple brand accents
+ * Readable dark text on light surfaces; purple for CTAs and highlights only.
+ */
+
+:root {
+  /* Brand (purple palette) */
+  --ev-purple-deep: #28104e;
+  --ev-purple: #6237a0;
+  --ev-purple-bright: #9754cb;
+  --ev-lilac: #deacf5;
+  --ev-lilac-soft: #f3ecfc;
+  --ev-lilac-muted: #e8dff5;
+
+  /* Map onto layout tokens used by main.css */
+  --primary: var(--ev-purple);
+  --primary-hover: var(--ev-purple-deep);
+  --accent: var(--ev-purple-bright);
+  --accent-muted: rgba(151, 84, 203, 0.1);
+  --sidebar-bg: #f6f4fc;
+  --sidebar-active-bg: #ede8f7;
+  --sidebar-active-border: var(--ev-purple);
+  --body-bg: #fafafa;
+  --card-bg: #ffffff;
+  --card-border: #e8e4f0;
+  --card-radius: 14px;
+  --card-shadow:
+    0 1px 3px rgba(40, 16, 78, 0.06), 0 8px 24px rgba(40, 16, 78, 0.04);
+  --border-color: #e8e4f0;
+  --text-primary: #1a1625;
+  --text-secondary: #4b4558;
+  --text-muted: #7a7389;
+  --input-bg: #ffffff;
+  --input-border: #d4cfe0;
+  --input-focus: var(--ev-purple);
+  --info: var(--ev-purple-bright);
+}
+
+/* Primary actions — purple gradient, white label */
+.btn-primary {
+  background: linear-gradient(
+    135deg,
+    var(--ev-purple-bright) 0%,
+    var(--ev-purple) 100%
+  ) !important;
+  border: none !important;
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(98, 55, 160, 0.28);
+}
+.btn-primary:hover,
+.btn-primary:focus {
+  background: linear-gradient(135deg, #a56dd4 0%, #4f2d85 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 20px rgba(98, 55, 160, 0.35);
+}
+
+.btn-outline-secondary {
+  color: var(--ev-purple) !important;
+  border-color: var(--card-border) !important;
+  background: #fff !important;
+}
+.btn-outline-secondary:hover {
+  background: var(--ev-lilac-soft) !important;
+  border-color: var(--ev-purple-bright) !important;
+  color: var(--ev-purple-deep) !important;
+}
+
+/* Outline primary — purple (admin / tables) */
+.btn-outline-primary {
+  color: var(--ev-purple) !important;
+  border: 1px solid var(--ev-lilac-muted) !important;
+  background: #fff !important;
+}
+.btn-outline-primary:hover {
+  background: var(--ev-lilac-soft) !important;
+  border-color: var(--ev-purple-bright) !important;
+  color: var(--ev-purple-deep) !important;
+}
+
+/* Code blocks — light surface, dark text */
+.code-block,
+.code-block pre,
+.code-block code {
+  background: var(--ev-lilac-soft) !important;
+  border: 1px solid var(--ev-lilac-muted) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Admin / voice tables (light, not “dark”) */
+.table-dark-custom {
+  color: var(--text-primary);
+  --bs-table-bg: transparent;
+}
+.table-dark-custom thead th {
+  color: var(--ev-purple-deep);
+  background: var(--ev-lilac-soft);
+  border-color: var(--ev-lilac-muted) !important;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.table-dark-custom td {
+  border-color: var(--border-color) !important;
+  vertical-align: middle;
+}
+.table-dark-custom tbody tr:hover td {
+  background: rgba(151, 84, 203, 0.04);
+}
+
+.admin-card {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--card-border) !important;
+  box-shadow: var(--card-shadow);
+}
+
+/* Soft quota / info alert */
+.ev-alert-quota {
+  background: linear-gradient(135deg, var(--ev-lilac-soft), #fff) !important;
+  border: 1px solid var(--ev-lilac-muted) !important;
+  color: var(--text-primary) !important;
+  border-radius: 12px;
+}
+.ev-alert-quota strong {
+  color: var(--ev-purple-deep);
+}
+
+/* ---------- Standalone landing (body.ev-landing) ---------- */
+body.ev-landing {
+  font-family: "Inter", system-ui, sans-serif;
+  background: linear-gradient(
+    180deg,
+    #faf9ff 0%,
+    #ffffff 38%,
+    #f7f5fc 100%
+  ) !important;
+  color: var(--text-primary) !important;
+  min-height: 100vh;
+}
+
+body.ev-landing .app-header {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  box-shadow: 0 1px 0 rgba(40, 16, 78, 0.04);
+  backdrop-filter: blur(12px);
+}
+
+body.ev-landing .app-header .brand {
+  color: var(--text-primary) !important;
+}
+
+body.ev-landing .app-nav-link {
+  color: var(--text-secondary) !important;
+}
+body.ev-landing .app-nav-link:hover {
+  color: var(--ev-purple) !important;
+  background: var(--accent-muted) !important;
+}
+
+body.ev-landing .app-footer,
+body.ev-landing footer.app-footer {
+  border-top: 1px solid var(--border-color) !important;
+  color: var(--text-muted) !important;
+  background: transparent !important;
+}
+
+.ev-hero {
+  padding: 5.5rem 0 3.5rem;
+  position: relative;
+}
+@media (min-width: 768px) {
+  .ev-hero {
+    padding: 6.5rem 0 4rem;
+  }
+}
+
+.ev-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ev-purple);
+  background: var(--ev-lilac-soft);
+  border: 1px solid var(--ev-lilac-muted);
+  margin-bottom: 1.25rem;
+}
+
+.ev-hero h1 {
+  font-size: clamp(2rem, 5vw, 3.35rem);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.ev-gradient-text {
+  background: linear-gradient(
+    135deg,
+    var(--ev-lilac) 0%,
+    var(--ev-purple-bright) 45%,
+    var(--ev-purple-deep) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.ev-hero-lead {
+  font-size: 1.125rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  max-width: 36rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.ev-hero-lead strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.ev-cta-row {
+  margin-top: 2rem;
+}
+
+.ev-cta-primary {
+  border-radius: 999px;
+  padding: 0.7rem 1.65rem;
+  font-weight: 600;
+}
+
+.ev-cta-ghost {
+  border-radius: 999px;
+  padding: 0.7rem 1.65rem;
+  font-weight: 600;
+}
+
+/* Decorative mesh (very subtle) */
+.ev-landing-mesh {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  background:
+    radial-gradient(
+      ellipse 80% 50% at 50% -20%,
+      rgba(151, 84, 203, 0.15),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 100% 50%,
+      rgba(98, 55, 160, 0.08),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 50% 30% at 0% 80%,
+      rgba(222, 172, 245, 0.12),
+      transparent
+    );
+}
+
+.ev-landing-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* Feature cards */
+.ev-feature-card {
+  border-radius: 20px;
+  border: 1px solid var(--card-border);
+  background: #fff;
+  padding: 1.75rem;
+  height: 100%;
+  box-shadow: var(--card-shadow);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.ev-feature-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(40, 16, 78, 0.08);
+}
+
+.ev-feature-card .ev-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ev-lilac-soft);
+  color: var(--ev-purple);
+  font-size: 1.15rem;
+  margin-bottom: 1rem;
+}
+
+.ev-feature-card h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.ev-feature-card p,
+.ev-feature-card .text-secondary {
+  color: var(--text-secondary) !important;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  margin-bottom: 0;
+}
+
+.ev-feature-card code {
+  font-size: 0.8125rem;
+  background: var(--ev-lilac-soft);
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+  color: var(--ev-purple-deep);
+}
+
+/* Endpoint panel */
+.ev-endpoint-panel {
+  border-radius: 20px;
+  border: 1px solid var(--card-border);
+  background: #fff;
+  padding: 1.75rem 2rem;
+  box-shadow: var(--card-shadow);
+  margin-top: 0.5rem;
+}
+
+.ev-endpoint-panel h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+
+.ev-endpoint-panel pre {
+  margin: 0;
+  padding: 1.25rem 1.5rem;
+  border-radius: 14px;
+  background: var(--ev-lilac-soft) !important;
+  border: 1px solid var(--ev-lilac-muted) !important;
+  color: var(--text-primary) !important;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+/* ---------- Auth pages (standalone) ---------- */
+.auth-page {
+  min-height: 100vh;
+  background: linear-gradient(
+    165deg,
+    #faf9ff 0%,
+    #ffffff 50%,
+    #f3ecfc 100%
+  ) !important;
+}
+
+.auth-card {
+  background: #ffffff !important;
+  border: 1px solid var(--card-border) !important;
+  box-shadow:
+    0 20px 50px rgba(40, 16, 78, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.8) !important;
+  color: var(--text-primary) !important;
+  border-radius: 20px !important;
+}
+
+.auth-title {
+  color: var(--text-primary) !important;
+}
+
+.logo-text {
+  color: var(--text-primary) !important;
+}
+
+.auth-subtitle {
+  color: var(--text-secondary) !important;
+}
+
+.auth-page .form-control {
+  background: var(--input-bg) !important;
+  border: 1px solid var(--input-border) !important;
+  color: var(--text-primary) !important;
+}
+
+.auth-page .form-control:focus {
+  border-color: var(--ev-purple-bright) !important;
+  box-shadow: 0 0 0 3px rgba(151, 84, 203, 0.15) !important;
+}
+
+.auth-page label,
+.auth-page .form-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ---------- Test page · pipeline log (white / console) ---------- */
+.ev-pipeline-card .card-header {
+  font-weight: 600;
+}
+
+.ev-pipeline-log {
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  background: #fafafa;
+  border-top: 1px solid var(--card-border);
+  max-height: min(70vh, 720px);
+  overflow-y: auto;
+}
+
+.ev-log-entry {
+  border-bottom: 1px solid var(--border-color);
+  border-left: 4px solid #cbd5e1;
+  background: #fff;
+  padding: 0;
+}
+
+.ev-log-entry.ev-log-ok {
+  border-left-color: #16a34a;
+  background: linear-gradient(90deg, rgba(22, 163, 74, 0.04), #fff 12%);
+}
+
+.ev-log-entry.ev-log-warn {
+  border-left-color: #ca8a04;
+  background: linear-gradient(90deg, rgba(202, 138, 4, 0.06), #fff 12%);
+}
+
+.ev-log-entry.ev-log-error {
+  border-left-color: #dc2626;
+  background: linear-gradient(90deg, rgba(220, 38, 38, 0.05), #fff 12%);
+}
+
+.ev-log-entry.ev-log-skip {
+  border-left-color: #64748b;
+  background: linear-gradient(90deg, rgba(100, 116, 139, 0.06), #fff 12%);
+}
+
+.ev-log-entry.ev-log-info {
+  border-left-color: var(--ev-purple-bright);
+  background: linear-gradient(90deg, rgba(151, 84, 203, 0.06), #fff 14%);
+}
+
+.ev-log-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.65rem 1rem 0.4rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.ev-log-time {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ev-log-step-tag {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  background: var(--ev-lilac-soft);
+  color: var(--ev-purple-deep);
+  font-weight: 700;
+}
+
+.ev-log-label {
+  flex: 1;
+  min-width: 140px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ev-log-badge {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.ev-badge-ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.ev-badge-warn {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.ev-badge-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.ev-badge-skip {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.ev-badge-info {
+  background: var(--ev-lilac-soft);
+  color: var(--ev-purple-deep);
+}
+
+.ev-log-lines {
+  margin: 0;
+  padding: 0 1rem 0.85rem 1rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  font-size: 0.8125rem;
+}
+
+.ev-summary-card dt {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.ev-summary-card dd {
+  color: var(--text-primary);
+}

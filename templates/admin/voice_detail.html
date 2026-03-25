@@ -1,0 +1,51 @@
+{% extends 'admin/base_admin.html' %}
+{% block admin_title %}Voice request{% endblock %}
+{% block admin_content %}
+<div class="mb-3">
+    <a href="{% url 'admin:voice-list' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Back</a>
+</div>
+<h1 class="page-title">Request {{ vr.id }}</h1>
+<p class="text-muted">{{ vr.created_at }} · {{ vr.user.email|default:vr.user.username }}</p>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card admin-card h-100">
+            <div class="card-header">Classification</div>
+            <div class="card-body">
+                <p><strong>Status:</strong> {{ vr.status }}</p>
+                <p><strong>Category:</strong> {{ vr.category|default:"—" }}</p>
+                <p><strong>Confidence:</strong> {% if vr.confidence is not None %}{{ vr.confidence }}{% else %}—{% endif %}</p>
+                <p><strong>Duration (s):</strong> {% if vr.audio_duration_seconds is not None %}{{ vr.audio_duration_seconds|floatformat:2 }}{% else %}—{% endif %}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card admin-card h-100">
+            <div class="card-header">Raw classifier</div>
+            <div class="card-body"><pre class="small text-wrap mb-0" style="white-space:pre-wrap;">{{ vr.raw_classification|default:"—" }}</pre></div>
+        </div>
+    </div>
+    <div class="col-12">
+        <div class="card admin-card">
+            <div class="card-header">Transcripts</div>
+            <div class="card-body">
+                <p class="mb-2"><strong>Amharic</strong></p>
+                <p class="text-muted" dir="auto">{{ vr.amharic_text|default:"—" }}</p>
+                <p class="mb-2 mt-3"><strong>English</strong></p>
+                <p class="text-muted">{{ vr.english_text|default:"—" }}</p>
+                {% if vr.error_message %}
+                <p class="mb-0 mt-3 text-danger"><strong>Error</strong><br>{{ vr.error_message }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% if meta_json %}
+    <div class="col-12">
+        <div class="card admin-card">
+            <div class="card-header">Pipeline metadata</div>
+            <div class="card-body"><pre class="small mb-0" style="white-space:pre-wrap;">{{ meta_json }}</pre></div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
