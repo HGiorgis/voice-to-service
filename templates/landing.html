@@ -34,7 +34,7 @@
     <div class="ev-pro-grid"></div>
 </div>
 
-<header class="ev-pro-header ev-pro-header-glass">
+<header class="ev-pro-header">
     <div class="ev-pro-header-inner">
         <a class="ev-pro-brand" href="{% url 'landing' %}">
             <img src="{% static 'images/voice-to-service-logo.svg' %}" alt="" width="34" height="34">
@@ -57,7 +57,7 @@
         <div class="container position-relative">
             <div class="row align-items-center g-5">
                 <div class="col-lg-7 ev-pro-reveal">
-                    <p class="ev-pro-eyebrow ev-pro-eyebrow-glass"><span class="ev-pro-dot"></span> Amharic · Real-time · API-first</p>
+                    <p class="ev-pro-eyebrow"><span class="ev-pro-dot"></span> Amharic · Real-time · API-first</p>
                     <h1 class="ev-pro-headline">
                         Speech in Amharic.<br>
                         <span class="ev-pro-gradient">Structured answers out.</span>
@@ -203,7 +203,7 @@
 <pre class="ev-pro-code-block"><code>curl -X POST \
   -H "<span class="ev-pro-hl">X-API-Key: YOUR_KEY</span>" \
   -F "audio=@recording.wav" \
-  https://your-host<span class="ev-pro-muted">/api/v1/process-audio/</span></code></pre>
+  https://voice-to-service.onrender.com<span class="ev-pro-muted">/api/v1/process-audio/</span></code></pre>
                     </div>
                 </div>
             </div>
