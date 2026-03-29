@@ -1,56 +1,104 @@
-import os
-import smtplib
-from email.mime.text import MIMEText
-from email.utils import formataddr
-from dotenv import load_dotenv
-
-# Load .env file
-load_dotenv()
-
-# Get environment variables
-EMAIL_HOST = os.getenv("EMAIL_HOST")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT"))
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS") == "True"
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
-
-# Email details
-to_email = "your-email@gmail.com"
-subject = "Welcome to Voice To Service 🚀"
-
-body = """
-Hello 👋,
-
-This email is sent from Voice To Service.
-
-Your email system is working perfectly!
-
-Best regards,  
-Voice To Service Team
+#!/usr/bin/env python3
 """
+Send one test email through the same configuration the app uses (Brevo API or console).
 
-# Create message
-msg = MIMEText(body, "plain", "utf-8")
+Prerequisites:
+  - Run from the ``voice-to-service`` directory (or any CWD; paths are resolved from this file).
+  - ``.env`` with ``BREVO_API_KEY`` and ``DEFAULT_FROM_EMAIL`` as in production (see ``.env.example`` and ``docs/email-brevo-render.md``).
 
-msg["From"] = formataddr(("Voice To Service", DEFAULT_FROM_EMAIL))
-msg["To"] = to_email
-msg["Subject"] = subject
+Usage:
+  python scripts/send_test_email.py recipient@example.com
+"""
+from __future__ import annotations
 
-try:
-    server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
+import os
+import sys
+from pathlib import Path
 
-    if EMAIL_USE_TLS:
-        server.starttls()
+ROOT = Path(__file__).resolve().parents[1]
 
-    server.login(EMAIL_HOST_USER, EMAIL_HOST_PASSWORD)
 
-    server.sendmail(DEFAULT_FROM_EMAIL, to_email, msg.as_string())
+def _load_env() -> None:
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    if str(ROOT / "apps") not in sys.path:
+        sys.path.insert(0, str(ROOT / "apps"))
 
-    print("✅ Email sent successfully!")
+    env_file = ROOT / ".env"
+    try:
+        from dotenv import load_dotenv
 
-except Exception as e:
-    print("❌ Error:", e)
+        load_dotenv(env_file)
+    except ImportError:
+        pass
 
-finally:
-    server.quit()
+
+def _from_email_header() -> str:
+    from django.conf import settings
+
+    raw = (getattr(settings, "DEFAULT_FROM_EMAIL", None) or "").strip()
+    name = (getattr(settings, "DEFAULT_FROM_NAME", None) or "").strip()
+    if name and raw and "<" not in raw:
+        return f"{name} <{raw}>"
+    return raw or "noreply@localhost"
+
+
+def main() -> int:
+    if len(sys.argv) != 2:
+        sys.stderr.write("Usage: python scripts/send_test_email.py recipient@example.com\n")
+        return 2
+
+    to_addr = (sys.argv[1] or "").strip()
+    if "@" not in to_addr:
+        sys.stderr.write("Invalid recipient — expected an email address.\n")
+        return 2
+
+    _load_env()
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+    import django
+
+    django.setup()
+
+    from django.conf import settings
+    from django.core.mail import send_mail
+
+    from_email = _from_email_header()
+    subject = "Voice To Service — email test"
+    body = (
+        "This is a test message from scripts/send_test_email.py\n\n"
+        "If you received this, Django email settings (Brevo API or console) are working.\n"
+    )
+
+    backend = getattr(settings, "EMAIL_BACKEND", "")
+    brevo = (getattr(settings, "BREVO_API_KEY", "") or "").strip()
+    timeout = getattr(settings, "EMAIL_TIMEOUT", None)
+
+    print("Sending test email (same stack as the running app)...")
+    print(f"  EMAIL_BACKEND: {backend}")
+    print(f"  BREVO_API_KEY: {'set' if brevo else '(empty — console if no explicit backend)'}")
+    print(f"  EMAIL_TIMEOUT: {timeout}s")
+    print(f"  From:          {from_email}")
+    print(f"  To:            {to_addr}")
+
+    try:
+        send_mail(
+            subject=subject,
+            message=body,
+            from_email=from_email,
+            recipient_list=[to_addr],
+            fail_silently=False,
+        )
+    except Exception as exc:
+        sys.stderr.write(f"\n[fail] Could not send: {type(exc).__name__}: {exc}\n")
+        sys.stderr.write(
+            "\nCheck docs/email-brevo-render.md (verified sender + BREVO_API_KEY).\n"
+        )
+        return 1
+
+    print("\n[ok] Message accepted by the mail backend. Check the inbox (and spam).")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

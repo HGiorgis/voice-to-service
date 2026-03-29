@@ -68,12 +68,24 @@ _behind_tls_proxy = (
     os.environ.get('RENDER', '').strip().lower() == 'true'
     or os.environ.get('SECURE_BEHIND_PROXY', '').strip().lower() in ('1', 'true', 'yes')
 )
+# Render / reverse proxies terminate TLS; Daphne sees http:// but X-Forwarded-Proto=https.
+# Do NOT set this for plain local dev — request.scheme stays http:// and OAuth redirect_uri matches.
 if _behind_tls_proxy:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+# Never force browser → https redirect while DEBUG=True (local http://127.0.0.1:8000/ would break).
+# Production (DEBUG=False): redirect HTTP → HTTPS. Override with SECURE_SSL_REDIRECT=0 if needed.
+_ssl_redirect_env = (os.environ.get('SECURE_SSL_REDIRECT') or '').strip().lower()
+if _ssl_redirect_env in ('0', 'false', 'no'):
+    SECURE_SSL_REDIRECT = False
+elif _ssl_redirect_env in ('1', 'true', 'yes'):
+    SECURE_SSL_REDIRECT = True
+else:
+    SECURE_SSL_REDIRECT = not DEBUG
 
 # Application definition
 INSTALLED_APPS = [
@@ -235,12 +247,6 @@ else:
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-SECURE_SSL_REDIRECT = True
-
-
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -292,26 +298,33 @@ CELERY_RESULT_SERIALIZER = 'json'
 # Public site URL (links inside verification emails)
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:8000').rstrip('/')
 
-# Email (OTP verification). If EMAIL_HOST_USER is empty, mail is printed to the console.
-# Hosted deploy (e.g. Render): use a transactional SMTP relay — see docs/email-smtp-render.md (Brevo ~300/day free).
-EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('1', 'true', 'yes')
-EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False').lower() in ('1', 'true', 'yes')
-# SMTP connect/send timeout (seconds). Prevents ASGI workers hanging when the network is unreachable.
-EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '15'))
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@voice-to-service.com')
-# Shown as inbox "From" name (paired with DEFAULT_FROM_EMAIL unless FROM already includes <…>).
-DEFAULT_FROM_NAME = os.environ.get('DEFAULT_FROM_NAME', 'Voice To Service')
+# Email (OTP verification). Without BREVO_API_KEY, mail is printed to the console (local dev).
+# Production: Brevo HTTPS API — see docs/email-brevo-render.md
+def _email_env(key: str, default: str = '') -> str:
+    """
+    Strip whitespace/newlines and optional wrapping quotes — common when pasting into Render or .env.
+    """
+    v = (os.environ.get(key, default) or '').strip()
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in '"\'':
+        v = v[1:-1].strip()
+    return v
 
-# Optional override, e.g. django.core.mail.backends.console.EmailBackend when SMTP is unreachable on the host.
+
+# HTTP timeout for Brevo API sends (seconds).
+EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '15'))
+DEFAULT_FROM_EMAIL = _email_env('DEFAULT_FROM_EMAIL') or 'noreply@voice-to-service.com'
+# Shown as inbox "From" name (paired with DEFAULT_FROM_EMAIL unless FROM already includes <…>).
+DEFAULT_FROM_NAME = _email_env('DEFAULT_FROM_NAME', 'Voice To Service') or 'Voice To Service'
+
+# Brevo: transactional email over HTTPS (api.brevo.com), not SMTP.
+BREVO_API_KEY = _email_env('BREVO_API_KEY')
+
+# Backend: explicit EMAIL_BACKEND > Brevo API (BREVO_API_KEY) > console
 _email_backend = (os.environ.get('EMAIL_BACKEND') or '').strip()
 if _email_backend:
     EMAIL_BACKEND = _email_backend
-elif EMAIL_HOST_USER:
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+elif BREVO_API_KEY:
+    EMAIL_BACKEND = 'apps.authentication.brevo_api_backend.BrevoApiEmailBackend'
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 

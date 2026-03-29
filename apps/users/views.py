@@ -1,4 +1,5 @@
 import json
+import logging
 import math
 import uuid
 
@@ -21,6 +22,15 @@ from django.utils import timezone
 from django.db import models
 from django.db.models.functions import TruncDate
 from django.db.models import Count
+
+logger = logging.getLogger(__name__)
+
+# Shown when outbound email fails; real error is always logged for operators (e.g. Render → Logs).
+_VERIFICATION_EMAIL_FAIL_USER_MSG = (
+    'Could not send the verification email. Check your server logs for the exact error '
+    '(e.g. Render → Logs). On Render, set BREVO_API_KEY and DEFAULT_FROM_EMAIL on this Web Service '
+    '(a local .env is not loaded in production). Paste the API key without extra spaces or newlines, then redeploy.'
+)
 
 from apps.authentication.email_verification import (
     codes_match,
@@ -160,10 +170,8 @@ def _send_verification_email_for_login_attempt(request, user):
         user.save(update_fields=['email_verification_send_count'])
         messages.success(request, 'We sent a verification code to your email.')
     except Exception:
-        messages.warning(
-            request,
-            'Could not send email right now. Use “Resend code” on the verify page.',
-        )
+        logger.exception('verification email failed (login → verify redirect)')
+        messages.warning(request, _VERIFICATION_EMAIL_FAIL_USER_MSG)
 
 
 def _apply_google_oauth_verification_state(user) -> bool:
@@ -358,10 +366,11 @@ def register_view(request):
                 user.email_verification_send_count = 1
                 user.save(update_fields=['email_verification_send_count'])
             except Exception:
+                logger.exception('verification email failed (registration)')
                 messages.error(
                     request,
                     'Your account was created but we could not send the verification email. '
-                    'Check EMAIL_* settings, then use “Resend code” on the next page.',
+                    + _VERIFICATION_EMAIL_FAIL_USER_MSG,
                 )
             log_registration_attempt(
                 ip=ip,
@@ -505,10 +514,8 @@ def resend_verification_email_view(request):
         user.save(update_fields=['email_verification_send_count'])
         messages.success(request, 'A new verification code was sent to your email.')
     except Exception:
-        messages.error(
-            request,
-            'Could not send email. Confirm EMAIL_HOST / EMAIL_HOST_USER / password in your environment.',
-        )
+        logger.exception('verification email failed (resend)')
+        messages.error(request, _VERIFICATION_EMAIL_FAIL_USER_MSG)
     return redirect('auth:verify-email')
 
 

@@ -51,7 +51,7 @@ def issue_new_code(user) -> str:
 
 def _format_from_email() -> str:
     """
-    Inbox-friendly From: show product name, not only the SMTP username.
+    Inbox-friendly From: show product name with DEFAULT_FROM_EMAIL.
     Accepts DEFAULT_FROM_EMAIL as 'addr@x.com' or 'Name <addr@x.com>'.
     """
     raw = (getattr(settings, 'DEFAULT_FROM_EMAIL', None) or 'noreply@localhost').strip()
@@ -101,7 +101,7 @@ def send_verification_email(*, user, code: str) -> None:
     except OSError as exc:
         # Errno 101 "Network is unreachable", timeouts, etc. — fail fast; do not block ASGI long.
         logger.warning(
-            'Verification email SMTP/network error for %s (%s): %s',
+            'Verification email send error for %s (%s): %s',
             user.email,
             type(exc).__name__,
             exc,
