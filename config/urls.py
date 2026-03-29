@@ -2,9 +2,10 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from apps.users.views import landing_page_view, login_view
+from apps.users.views import landing_page_view, login_view, robots_txt
 
 urlpatterns = [
+    path('robots.txt', robots_txt, name='robots_txt'),
     # Landing page (public)
     path('', landing_page_view, name='landing'),
     # Root 'login' so reverse('login') works for admin/staff redirects (same view as auth:login)

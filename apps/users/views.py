@@ -5,7 +5,7 @@ import uuid
 from django.core.files.base import ContentFile
 
 from apps.core.voice_temp_storage import get_voice_temp_storage
-from django.http import HttpResponseNotAllowed, JsonResponse, StreamingHttpResponse
+from django.http import HttpResponse, HttpResponseNotAllowed, JsonResponse, StreamingHttpResponse
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.conf import settings
 from django.shortcuts import render, redirect
@@ -191,7 +191,40 @@ def _apply_google_oauth_verification_state(user) -> bool:
 
 def landing_page_view(request):
     """Public landing page at / ."""
-    return render(request, 'landing.html')
+    site = request.build_absolute_uri('/').rstrip('/')
+    og_image = request.build_absolute_uri(static('images/index.png'))
+    meta_description = (
+        'Amharic speech-to-text, English translation, and emergency intent routing (Medical, '
+        'Police, Fire) — one REST API for voice intelligence and structured JSON.'
+    )
+    return render(
+        request,
+        'landing.html',
+        {
+            'page_title': 'Voice To Service — Amharic Voice Intelligence API',
+            'meta_description': meta_description,
+            'meta_author': 'Hailegiorgis Wagaye',
+            'og_title': 'Voice To Service · Amharic voice intelligence API',
+            'og_description': meta_description,
+            'og_image_url': og_image,
+            'og_url': site + '/',
+            'twitter_card': 'summary_large_image',
+        },
+    )
+
+
+@require_GET
+def robots_txt(request):
+    """Avoid 404 noise from crawlers; keep admin/API discoverable only via known URLs."""
+    body = (
+        'User-agent: *\n'
+        'Allow: /\n'
+        'Disallow: /admin/\n'
+        'Disallow: /api/\n'
+        'Disallow: /oauth/\n'
+        '\n'
+    )
+    return HttpResponse(body, content_type='text/plain; charset=utf-8')
 
 
 @require_http_methods(['POST'])

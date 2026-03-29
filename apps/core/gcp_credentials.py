@@ -127,9 +127,10 @@ def install_gcp_credentials_from_env(*, project_root: Optional[Path] = None) -> 
             _credentials_temp_path = path
             os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = path
             atexit.register(_try_unlink, path)
-            logger.warning(
-                'GOOGLE_APPLICATION_CREDENTIALS contained raw JSON, not a path. '
-                'Prefer a file path or GOOGLE_APPLICATION_CREDENTIALS_B64 for production.'
+            logger.info(
+                'GCP credentials materialized from inline JSON in GOOGLE_APPLICATION_CREDENTIALS '
+                '(credentials work; for cleaner production setup use GOOGLE_APPLICATION_CREDENTIALS_B64 '
+                'and remove the JSON from GOOGLE_APPLICATION_CREDENTIALS — see .env.example).'
             )
         else:
             logger.warning(

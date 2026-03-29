@@ -293,6 +293,7 @@ CELERY_RESULT_SERIALIZER = 'json'
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:8000').rstrip('/')
 
 # Email (OTP verification). If EMAIL_HOST_USER is empty, mail is printed to the console.
+# Hosted deploy (e.g. Render): use a transactional SMTP relay — see docs/email-smtp-render.md (Brevo ~300/day free).
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
@@ -305,7 +306,11 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@voice-to-serv
 # Shown as inbox "From" name (paired with DEFAULT_FROM_EMAIL unless FROM already includes <…>).
 DEFAULT_FROM_NAME = os.environ.get('DEFAULT_FROM_NAME', 'Voice To Service')
 
-if EMAIL_HOST_USER:
+# Optional override, e.g. django.core.mail.backends.console.EmailBackend when SMTP is unreachable on the host.
+_email_backend = (os.environ.get('EMAIL_BACKEND') or '').strip()
+if _email_backend:
+    EMAIL_BACKEND = _email_backend
+elif EMAIL_HOST_USER:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
