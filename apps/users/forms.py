@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
 from apps.authentication.antiabuse import (
@@ -173,37 +174,76 @@ class CustomAuthenticationForm(AuthenticationForm):
 
 
 class UserProfileForm(forms.ModelForm):
-    """Profile update form"""
-    
+    """Profile update (email is not editable here)."""
+
     class Meta:
         model = User
-        fields = ('email', 'company_name', 'phone')
+        fields = ('first_name', 'last_name', 'company_name', 'phone')
         widgets = {
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'company_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'First name', 'autocomplete': 'given-name'}
+            ),
+            'last_name': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'Last name', 'autocomplete': 'family-name'}
+            ),
+            'company_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Company (optional)'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Phone (optional)'}),
         }
 
 
 class ChangePasswordForm(forms.Form):
-    """Change password form"""
-    
+    """Change password: Google-only users may leave current password empty."""
+
     current_password = forms.CharField(
-        widget=forms.PasswordInput(attrs={'class': 'form-control'})
+        required=False,
+        widget=forms.PasswordInput(
+            attrs={'class': 'form-control', 'autocomplete': 'current-password'}
+        ),
     )
     new_password = forms.CharField(
-        widget=forms.PasswordInput(attrs={'class': 'form-control'})
+        widget=forms.PasswordInput(
+            attrs={'class': 'form-control', 'autocomplete': 'new-password'}
+        ),
     )
     confirm_password = forms.CharField(
-        widget=forms.PasswordInput(attrs={'class': 'form-control'})
+        widget=forms.PasswordInput(
+            attrs={'class': 'form-control', 'autocomplete': 'new-password'}
+        ),
     )
-    
+
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+        if user and user.has_usable_password():
+            self.fields['current_password'].required = True
+            self.fields['current_password'].widget.attrs.setdefault(
+                'placeholder', 'Current password'
+            )
+        else:
+            self.fields['current_password'].widget.attrs.setdefault(
+                'placeholder', 'Leave blank if you use Google sign-in'
+            )
+
+    def clean_new_password(self):
+        pwd = self.cleaned_data.get('new_password')
+        if pwd and self.user:
+            validate_password(pwd, self.user)
+        return pwd
+
     def clean(self):
         cleaned_data = super().clean()
         new_password = cleaned_data.get('new_password')
         confirm_password = cleaned_data.get('confirm_password')
-        
+
         if new_password and confirm_password and new_password != confirm_password:
-            raise forms.ValidationError("Passwords don't match")
-        
+            self.add_error('confirm_password', 'The two new passwords do not match.')
+
+        u = self.user
+        if u and u.has_usable_password():
+            cur = (cleaned_data.get('current_password') or '').strip()
+            if not cur:
+                self.add_error('current_password', 'Enter your current password.')
+            elif not u.check_password(cur):
+                self.add_error('current_password', 'Current password is incorrect.')
+
         return cleaned_data

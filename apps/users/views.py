@@ -108,6 +108,63 @@ def _verify_flow_timing(user):
     }
 
 
+def _resolve_user_from_login_identifier(raw: str):
+    """Match User by email or username (same rules as the login form)."""
+    User = get_user_model()
+    raw = (raw or '').strip()
+    if not raw:
+        return None
+    if '@' in raw:
+        return User.objects.filter(email__iexact=raw).first()
+    return User.objects.filter(username__iexact=User.normalize_username(raw)).first()
+
+
+def _send_verification_email_for_login_attempt(request, user):
+    """Put user in the verify-email flow and send a code when limits allow."""
+    request.session[SESSION_PENDING_VERIFY] = str(user.pk)
+    timing = _verify_flow_timing(user)
+    send_max = int(getattr(settings, 'EMAIL_VERIFICATION_SEND_MAX', 5))
+    now = timezone.now()
+    code_expired = (
+        not user.email_verification_expires_at or user.email_verification_expires_at < now
+    )
+    no_code = not (user.email_verification_code_hash or '').strip()
+    need_new = no_code or code_expired
+
+    if user.email_verification_send_count >= send_max and not need_new:
+        messages.info(
+            request,
+            'Enter the verification code we emailed you. You can use “Resend code” on the next page when allowed.',
+        )
+        return
+    if user.email_verification_send_count >= send_max and need_new:
+        messages.warning(
+            request,
+            f'We could not send another verification email (limit of {send_max}). '
+            'Use the verify page to resend when the cooldown allows, or contact support.',
+        )
+        return
+    if not need_new and not timing['can_resend_code']:
+        messages.info(
+            request,
+            f'Check your inbox for your code. You can request a new one in '
+            f'{timing["resend_cooldown_seconds"]} seconds on the verify page.',
+        )
+        return
+
+    try:
+        code = issue_new_code(user)
+        send_verification_email(user=user, code=code)
+        user.email_verification_send_count = (user.email_verification_send_count or 0) + 1
+        user.save(update_fields=['email_verification_send_count'])
+        messages.success(request, 'We sent a verification code to your email.')
+    except Exception:
+        messages.warning(
+            request,
+            'Could not send email right now. Use “Resend code” on the verify page.',
+        )
+
+
 def landing_page_view(request):
     """Public landing page at / ."""
     return render(request, 'landing.html')
@@ -364,14 +421,50 @@ def login_view(request):
     """User login"""
     if request.user.is_authenticated:
         return redirect('admin:dashboard' if request.user.is_staff else 'user:dashboard')
+    purge_expired_unverified_users(request)
     google_on = _google_oauth_configured()
     if request.method == 'POST':
+        identifier = (request.POST.get('username') or '').strip()
+        password = request.POST.get('password') or ''
+        matched = _resolve_user_from_login_identifier(identifier) if identifier else None
+
+        if matched and not matched.has_usable_password():
+            if google_on:
+                return render(
+                    request,
+                    'auth/login.html',
+                    {
+                        'form': CustomAuthenticationForm(),
+                        'google_oauth_enabled': google_on,
+                        'oauth_only_account': True,
+                        'oauth_only_email': matched.email,
+                    },
+                )
+            messages.error(
+                request,
+                'This account was created with Google and has no password. '
+                'Google sign-in is not enabled on this server—contact support.',
+            )
+            return render(
+                request,
+                'auth/login.html',
+                {
+                    'form': CustomAuthenticationForm(request, data=request.POST),
+                    'google_oauth_enabled': google_on,
+                    'oauth_only_account': False,
+                    'oauth_only_email': '',
+                },
+            )
+
         form = CustomAuthenticationForm(request, data=request.POST)
         if form.is_valid():
             username = form.cleaned_data.get('username')
             password = form.cleaned_data.get('password')
             user = authenticate(username=username, password=password)
             if user is not None:
+                if not getattr(user, 'is_verified', False):
+                    _send_verification_email_for_login_attempt(request, user)
+                    return redirect('auth:verify-email')
                 cfg = AntiAbuseSettings.get_settings()
                 if cfg.enforce_admin_block and getattr(user, 'is_blocked', False):
                     messages.error(
@@ -393,6 +486,15 @@ def login_view(request):
                     return redirect('admin:dashboard')
                 return redirect('user:dashboard')
         else:
+            if (
+                matched
+                and matched.has_usable_password()
+                and password
+                and matched.check_password(password)
+                and not getattr(matched, 'is_verified', False)
+            ):
+                _send_verification_email_for_login_attempt(request, matched)
+                return redirect('auth:verify-email')
             messages.error(request, 'Invalid email, username, or password.')
     else:
         form = CustomAuthenticationForm()
@@ -400,7 +502,12 @@ def login_view(request):
     return render(
         request,
         'auth/login.html',
-        {'form': form, 'google_oauth_enabled': google_on},
+        {
+            'form': form,
+            'google_oauth_enabled': google_on,
+            'oauth_only_account': False,
+            'oauth_only_email': '',
+        },
     )
 
 @login_required
@@ -476,25 +583,33 @@ def profile_view(request):
         form = UserProfileForm(instance=request.user)
     
     active_section = request.GET.get('section', 'account')
-    return render(request, 'user/profile.html', {'form': form, 'active_section': active_section})
+    return render(
+        request,
+        'user/profile.html',
+        {
+            'form': form,
+            'active_section': active_section,
+            'has_local_password': request.user.has_usable_password(),
+        },
+    )
 
 @login_required
 def change_password(request):
     """Change password: GET redirects to profile#password; POST processes then redirects."""
     if request.method != 'POST':
         return redirect(reverse('user:profile') + '?section=password')
-    form = ChangePasswordForm(request.POST)
+    form = ChangePasswordForm(request.POST, user=request.user)
     if form.is_valid():
         user = request.user
-        if user.check_password(form.cleaned_data['current_password']):
-            user.set_password(form.cleaned_data['new_password'])
-            user.save()
-            update_session_auth_hash(request, user)
-            messages.success(request, 'Password changed successfully.')
-        else:
-            messages.error(request, 'Current password is incorrect.')
+        user.set_password(form.cleaned_data['new_password'])
+        user.save()
+        update_session_auth_hash(request, user)
+        messages.success(request, 'Password updated successfully.')
     else:
-        messages.error(request, 'Please fix the errors below.')
+        parts = [str(e) for errs in form.errors.values() for e in errs]
+        messages.error(
+            request, ' '.join(parts) if parts else 'Please check the password fields and try again.'
+        )
     return redirect(reverse('user:profile') + '?section=password')
 
 @login_required

@@ -21,6 +21,35 @@
                     <span class="logo-text">Voice To Service</span>
                 </a>
             </div>
+
+            {% if oauth_only_account %}
+            <h1 class="auth-title">Use Google to sign in</h1>
+            <p class="auth-subtitle">
+                The account for <strong>{{ oauth_only_email }}</strong> was created with <strong>Continue with Google</strong>
+                and does not have a password on this service.
+            </p>
+            <div class="auth-card auth-oauth-only-card">
+                {% if google_oauth_enabled %}
+                <div class="alert alert-light border mb-4 small text-secondary">
+                    <i class="fab fa-google me-2 text-dark"></i>
+                    Sign in with the same Google account to access your profile and API keys.
+                </div>
+                <form method="post" action="{% url 'auth:oauth-google-start' %}" class="mb-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="client_fingerprint" id="oauth_client_fingerprint_login_gate" value="">
+                    <button type="submit" class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2">
+                        <i class="fab fa-google"></i> Continue with Google
+                    </button>
+                </form>
+                {% else %}
+                <div class="alert alert-warning small mb-0">Google sign-in is not configured on this server.</div>
+                {% endif %}
+                <div class="auth-divider"></div>
+                <p class="auth-footer mb-0">
+                    <a href="{% url 'auth:login' %}">← Back to email &amp; password login</a>
+                </p>
+            </div>
+            {% else %}
             <h1 class="auth-title">Welcome back</h1>
             <p class="auth-subtitle">Log in to your account to continue.</p>
             <div class="auth-card">
@@ -53,6 +82,7 @@
                     Don’t have an account? <a href="{% url 'auth:register' %}">Sign up</a><br>
                 </p>
             </div>
+            {% endif %}
         </div>
     </div>
     <div id="toast-container" class="toast-container"></div>
@@ -70,8 +100,11 @@
         var s = [navigator.userAgent, screen.width, screen.height, screen.colorDepth, new Date().getTimezoneOffset(), navigator.language || '', navigator.hardwareConcurrency || 0].join('|');
         var h = 0;
         for (var i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i) | 0;
-        var el = document.getElementById('oauth_client_fingerprint_login');
-        if (el) el.value = 'fp1:' + h.toString(16) + ':' + (navigator.deviceMemory || 0);
+        var fp = 'fp1:' + h.toString(16) + ':' + (navigator.deviceMemory || 0);
+        var a = document.getElementById('oauth_client_fingerprint_login');
+        var b = document.getElementById('oauth_client_fingerprint_login_gate');
+        if (a) a.value = fp;
+        if (b) b.value = fp;
     })();
     </script>
 </body>

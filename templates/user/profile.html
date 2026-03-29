@@ -1,110 +1,130 @@
 {% extends 'user/base_user.html' %}
+{% load static %}
 
 {% block user_title %}Profile{% endblock %}
 
 {% block user_content %}
-<div class="profile-page">
-    <h1 class="page-title mb-1">Profile</h1>
-    <p class="page-subtitle">Manage your account and security in one place.</p>
+<div class="profile-manage">
+    <header class="profile-manage-header">
+        <div>
+            <h1 class="profile-manage-title">Account &amp; security</h1>
+            <p class="profile-manage-lead">Update your name and contact details. Email is fixed to your verified address.</p>
+        </div>
+    </header>
 
-    <div class="profile-tabs mb-4">
-        <a href="?section=account" class="profile-tab {% if active_section != 'password' %}active{% endif %}" data-section="account">
-            <i class="fas fa-user-circle me-2"></i>Account
+    <div class="profile-manage-tabs">
+        <a href="?section=account" class="profile-manage-tab {% if active_section != 'password' %}active{% endif %}" data-section="account">
+            <i class="fas fa-id-card me-2"></i>Profile
         </a>
-        <a href="?section=password" class="profile-tab {% if active_section == 'password' %}active{% endif %}" data-section="password">
-            <i class="fas fa-lock me-2"></i>Change password
+        <a href="?section=password" class="profile-manage-tab {% if active_section == 'password' %}active{% endif %}" data-section="password">
+            <i class="fas fa-key me-2"></i>Password
         </a>
     </div>
 
-    <section id="section-account" class="profile-section {% if active_section == 'password' %}d-none{% endif %}">
-        <div class="row g-4">
+    <section id="section-account" class="profile-manage-panel {% if active_section == 'password' %}d-none{% endif %}">
+        <div class="row g-4 align-items-stretch">
             <div class="col-lg-4">
-                <div class="card profile-avatar-card h-100">
-                    <div class="card-body text-center py-4">
-                        <div class="avatar-circle mb-3">
-                            <i class="fas fa-user fa-2x text-secondary"></i>
-                        </div>
-                        <h5 class="mb-1">{{ user.username }}</h5>
-                        <p class="text-secondary small mb-2">{{ user.email }}</p>
-                        <span class="badge bg-success">Active</span>
+                <div class="profile-identity-card">
+                    <div class="profile-identity-avatar" aria-hidden="true">
+                        {% if user.first_name or user.last_name %}
+                            {{ user.first_name|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}
+                        {% else %}
+                            {{ user.username|slice:":2"|upper }}
+                        {% endif %}
                     </div>
+                    <h2 class="h5 mb-1">{{ user.get_full_name|default:user.username }}</h2>
+                    <p class="profile-identity-email mb-3"><i class="fas fa-envelope me-2 text-muted"></i>{{ user.email }}</p>
+                    <div class="profile-identity-meta">
+                        <span><i class="fas fa-at text-muted me-2"></i>{{ user.username }}</span>
+                        <span><i class="fas fa-calendar text-muted me-2"></i>Joined {{ user.date_joined|date:"M j, Y" }}</span>
+                    </div>
+                    {% if user.is_verified %}
+                    <span class="profile-badge-verified mt-3"><i class="fas fa-check-circle me-1"></i>Verified</span>
+                    {% endif %}
                 </div>
             </div>
             <div class="col-lg-8">
-                <div class="card">
-                    <div class="card-header">Account information</div>
-                    <div class="card-body">
-                        <form method="post" action="{% url 'user:profile' %}">
-                            {% csrf_token %}
-                            {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Username</label>
-                                    <input type="text" class="form-control" value="{{ user.username }}" readonly>
-                                    <small class="text-muted">Username cannot be changed.</small>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Email</label>
-                                    <input type="email" class="form-control" name="email" value="{{ form.email.value|default:user.email }}" placeholder="you@example.com">
-                                    {% if form.email.errors %}<div class="invalid-feedback d-block">{{ form.email.errors.0 }}</div>{% endif %}
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label">Company name</label>
-                                    <input type="text" class="form-control" name="company_name" value="{{ form.company_name.value|default:user.company_name|default:'' }}" placeholder="Optional">
-                                    {% if form.company_name.errors %}<div class="invalid-feedback d-block">{{ form.company_name.errors.0 }}</div>{% endif %}
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Phone</label>
-                                    <input type="text" class="form-control" name="phone" value="{{ form.phone.value|default:user.phone|default:'' }}" placeholder="Optional">
-                                    {% if form.phone.errors %}<div class="invalid-feedback d-block">{{ form.phone.errors.0 }}</div>{% endif %}
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Member since</label>
-                                    <input type="text" class="form-control" value="{{ user.date_joined|date:"F j, Y" }}" readonly>
-                                </div>
+                <div class="profile-form-card">
+                    <h3 class="h6 text-uppercase text-muted fw-semibold letter-spacing mb-4">Edit details</h3>
+                    <form method="post" action="{% url 'user:profile' %}">
+                        {% csrf_token %}
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger small">{{ form.non_field_errors }}</div>
+                        {% endif %}
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label" for="id_first_name">First name</label>
+                                {{ form.first_name }}
+                                {% if form.first_name.errors %}<div class="invalid-feedback d-block small">{{ form.first_name.errors.0 }}</div>{% endif %}
                             </div>
-                            <button type="submit" class="btn btn-primary mt-3">Save changes</button>
-                        </form>
-                    </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="id_last_name">Last name</label>
+                                {{ form.last_name }}
+                                {% if form.last_name.errors %}<div class="invalid-feedback d-block small">{{ form.last_name.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" value="{{ user.email }}" readonly disabled>
+                                <small class="text-muted">Email can’t be changed here. It stays tied to your verified identity.</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="id_company_name">Company</label>
+                                {{ form.company_name }}
+                                {% if form.company_name.errors %}<div class="invalid-feedback d-block small">{{ form.company_name.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="id_phone">Phone</label>
+                                {{ form.phone }}
+                                {% if form.phone.errors %}<div class="invalid-feedback d-block small">{{ form.phone.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-4 px-4">Save changes</button>
+                    </form>
                 </div>
             </div>
         </div>
     </section>
 
-    <section id="section-password" class="profile-section {% if active_section != 'password' %}d-none{% endif %}">
-        <div class="card profile-password-card">
-            <div class="card-header">
-                <i class="fas fa-lock me-2"></i>Update your password
-            </div>
-            <div class="card-body">
-                <p class="text-secondary small mb-4">Use a strong password that you don't use elsewhere.</p>
-                <form method="post" action="{% url 'user:change-password' %}" class="profile-password-form">
-                    {% csrf_token %}
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label">Current password</label>
-                            <input type="password" class="form-control" name="current_password" required placeholder="Enter current password" autocomplete="current-password">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">New password</label>
-                            <input type="password" class="form-control" name="new_password" required placeholder="Enter new password" autocomplete="new-password">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Confirm new password</label>
-                            <input type="password" class="form-control" name="confirm_password" required placeholder="Confirm new password" autocomplete="new-password">
-                        </div>
+    <section id="section-password" class="profile-manage-panel {% if active_section != 'password' %}d-none{% endif %}">
+        <div class="profile-form-card profile-password-wrap">
+            <h3 class="h6 text-uppercase text-muted fw-semibold letter-spacing mb-2">Password</h3>
+            {% if has_local_password %}
+            <p class="text-secondary small mb-4">Enter your current password, then choose a new one.</p>
+            {% else %}
+            <p class="text-secondary small mb-4">
+                You signed up with <strong>Google</strong> and don’t have a password yet.
+                Set one below to sign in with email and password as well.
+            </p>
+            {% endif %}
+            <form method="post" action="{% url 'user:change-password' %}" class="profile-password-form" novalidate>
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="id_current_password">Current password{% if not has_local_password %} <span class="text-muted fw-normal">(optional)</span>{% endif %}</label>
+                        <input type="password" class="form-control" name="current_password" id="id_current_password"
+                            {% if has_local_password %}required{% endif %}
+                            placeholder="{% if has_local_password %}Current password{% else %}Leave blank — you use Google{% endif %}"
+                            autocomplete="current-password">
                     </div>
-                    <button type="submit" class="btn btn-primary mt-3">Update password</button>
-                </form>
-            </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_new_password">New password</label>
+                        <input type="password" class="form-control" name="new_password" id="id_new_password" required placeholder="New password" autocomplete="new-password">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_confirm_password">Confirm new password</label>
+                        <input type="password" class="form-control" name="confirm_password" id="id_confirm_password" required placeholder="Confirm" autocomplete="new-password">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary mt-4 px-4">{% if has_local_password %}Update password{% else %}Set password{% endif %}</button>
+            </form>
         </div>
     </section>
 </div>
 
 <script>
 (function() {
-  var tabs = document.querySelectorAll('.profile-tab');
-  var sections = document.querySelectorAll('.profile-section');
+  var tabs = document.querySelectorAll('.profile-manage-tab');
+  var sections = document.querySelectorAll('.profile-manage-panel');
   tabs.forEach(function(tab) {
     tab.addEventListener('click', function(e) {
       e.preventDefault();

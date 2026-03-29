@@ -8,80 +8,240 @@
     <title>Voice To Service — Amharic voice intelligence API</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
     <link rel="stylesheet" href="{% static 'css/voice-to-service-theme.css' %}">
 </head>
-<body class="ev-landing">
-<div class="ev-landing-mesh" aria-hidden="true"></div>
+<body class="ev-landing ev-landing-pro">
+<div class="ev-pro-bg" aria-hidden="true">
+    <div class="ev-pro-orb ev-pro-orb-a"></div>
+    <div class="ev-pro-orb ev-pro-orb-b"></div>
+    <div class="ev-pro-grid"></div>
+</div>
 
-<header class="app-header">
-    <div class="app-header-inner">
-        <a class="brand" href="{% url 'landing' %}">
-            <span class="brand-icon"><img src="{% static 'images/voice-to-service-logo.svg' %}" alt="" width="32" height="32"></span>
-            Voice To Service
+<header class="ev-pro-header">
+    <div class="ev-pro-header-inner">
+        <a class="ev-pro-brand" href="{% url 'landing' %}">
+            <img src="{% static 'images/voice-to-service-logo.svg' %}" alt="" width="34" height="34">
+            <span>Voice To Service</span>
         </a>
-        <nav class="app-nav">
-            <a class="app-nav-link" href="{% url 'auth:login' %}">Log in</a>
-            <a class="app-nav-btn" href="{% url 'auth:register' %}">Get API access</a>
+        <nav class="ev-pro-nav d-none d-md-flex align-items-center gap-1">
+            <a href="#product">Product</a>
+            <a href="#how-it-works">How it works</a>
+            <a href="#api">API</a>
         </nav>
+        <div class="ev-pro-header-actions">
+            <a class="ev-pro-link" href="{% url 'auth:login' %}">Log in</a>
+            <a class="btn btn-primary ev-pro-btn-cta" href="{% url 'auth:register' %}">Get API access</a>
+        </div>
     </div>
 </header>
 
-<main class="ev-landing-content">
-    <section class="ev-hero container text-center">
-        <span class="ev-hero-badge"><i class="fas fa-bolt"></i> Voice API · Production-ready</span>
-        <h1 class="mb-3">Amharic speech → <span class="ev-gradient-text">structured intelligence</span></h1>
-        <p class="ev-hero-lead">
-            Transcribe <strong>Amharic</strong>, translate to <strong>English</strong>, and route intent —
-            <strong>Medical</strong>, <strong>Police</strong>, <strong>Fire</strong>, or <strong>None</strong> —
-            for emergency systems, mobile apps, and smart cities.
-        </p>
-        <div class="d-flex flex-wrap justify-content-center gap-3 ev-cta-row">
-            <a href="{% url 'auth:register' %}" class="btn btn-primary ev-cta-primary"><i class="fas fa-key me-2"></i>Create account</a>
-            <a href="{% url 'auth:login' %}" class="btn btn-outline-secondary ev-cta-ghost">Log in</a>
+<main>
+    <section class="ev-pro-hero">
+        <div class="container position-relative">
+            <div class="row align-items-center g-5">
+                <div class="col-lg-7 ev-pro-reveal">
+                    <p class="ev-pro-eyebrow"><span class="ev-pro-dot"></span> Amharic · Real-time · API-first</p>
+                    <h1 class="ev-pro-headline">
+                        Speech in Amharic.<br>
+                        <span class="ev-pro-gradient">Structured answers out.</span>
+                    </h1>
+                    <p class="ev-pro-sub">
+                        Transcribe audio, translate to English, and classify intent for
+                        <strong>Medical</strong>, <strong>Police</strong>, <strong>Fire</strong>, or general routing — built for emergency systems, mobility, and operators who need dependable JSON, not guesswork.
+                    </p>
+                    <div class="d-flex flex-wrap gap-3 mt-4">
+                        <a href="{% url 'auth:register' %}" class="btn btn-primary btn-lg ev-pro-cta-main">
+                            <i class="fas fa-rocket me-2"></i>Start free
+                        </a>
+                        <a href="#api" class="btn btn-outline-secondary btn-lg ev-pro-cta-ghost">
+                            <i class="fas fa-code me-2"></i>View API
+                        </a>
+                    </div>
+                    <ul class="ev-pro-trust row g-3 mt-5 pt-2 list-unstyled small text-secondary">
+                        <li class="col-auto"><i class="fas fa-check text-success me-2"></i>Per-user API keys</li>
+                        <li class="col-auto"><i class="fas fa-check text-success me-2"></i>Google Speech + Gemini</li>
+                        <li class="col-auto"><i class="fas fa-check text-success me-2"></i>Fiddler-friendly limits</li>
+                    </ul>
+                </div>
+                <div class="col-lg-5 ev-pro-reveal ev-pro-reveal-delay-2">
+                    <div class="ev-pro-mockup">
+                        <div class="ev-pro-mockup-bar">
+                            <span></span><span></span><span></span>
+                            <span class="ev-pro-mockup-title">POST /api/v1/process-audio/</span>
+                        </div>
+                        <pre class="ev-pro-mockup-body"><code>{
+  "<span class="ev-pro-jk">transcript_am</span>": "የህመም አደጋ ነው...",
+  "<span class="ev-pro-jk">transcript_en</span>": "It is a medical emergency...",
+  "<span class="ev-pro-jk">intent</span>": "Medical",
+  "<span class="ev-pro-jk">confidence</span>": 0.94
+}</code></pre>
+                        <div class="ev-pro-mockup-glow"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
-    <section class="container pb-5 pt-2">
-        <div class="row g-4">
-            <div class="col-md-4">
-                <article class="ev-feature-card">
-                    <div class="ev-icon-wrap"><i class="fas fa-microphone-alt"></i></div>
-                    <h3>Full pipeline</h3>
-                    <p>Audio → Google Speech (<code>am-ET</code>) → Google Translate → Gemini classification → JSON you can plug into any backend.</p>
-                </article>
+    <section id="product" class="ev-pro-section ev-pro-stats">
+        <div class="container">
+            <div class="row g-4 text-center ev-pro-reveal">
+                <div class="col-md-4">
+                    <div class="ev-pro-stat-card">
+                        <div class="ev-pro-stat-icon"><i class="fas fa-wave-square"></i></div>
+                        <div class="ev-pro-stat-value">Full stack</div>
+                        <p class="ev-pro-stat-label mb-0">Audio → STT → translate → classify in one request</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="ev-pro-stat-card">
+                        <div class="ev-pro-stat-icon"><i class="fas fa-bolt"></i></div>
+                        <div class="ev-pro-stat-value">Fast integration</div>
+                        <p class="ev-pro-stat-label mb-0">REST + multipart uploads; responses you can pipe anywhere</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="ev-pro-stat-card">
+                        <div class="ev-pro-stat-icon"><i class="fas fa-shield-halved"></i></div>
+                        <div class="ev-pro-stat-value">Keyed access</div>
+                        <p class="ev-pro-stat-label mb-0"><code>X-API-Key</code> or Bearer — no passwords in your apps</p>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-4">
-                <article class="ev-feature-card">
-                    <div class="ev-icon-wrap"><i class="fas fa-shield-alt"></i></div>
-                    <h3>Secure by design</h3>
-                    <p>Per-user API keys. Send <code>X-API-Key</code> or <code>Authorization: Bearer</code> — no passwords in your integrations.</p>
-                </article>
+        </div>
+    </section>
+
+    <section class="ev-pro-section ev-pro-bento">
+        <div class="container">
+            <div class="ev-pro-section-head ev-pro-reveal text-center mx-auto">
+                <h2 class="ev-pro-h2">Everything you need for voice intelligence</h2>
+                <p class="ev-pro-section-lead">One coherent pipeline for Amharic operators — tuned for clarity, limits you control, and APIs that stay boring on purpose.</p>
             </div>
-            <div class="col-md-4">
-                <article class="ev-feature-card">
-                    <div class="ev-icon-wrap"><i class="fas fa-sliders-h"></i></div>
+            <div class="ev-pro-bento-grid">
+                <article class="ev-pro-tile ev-pro-tile-lg ev-pro-reveal">
+                    <div class="ev-pro-tile-icon"><i class="fas fa-microphone-lines"></i></div>
+                    <h3>Amharic-first speech</h3>
+                    <p>Google Speech with <code>am-ET</code> plus translation to English so downstream systems speak one language.</p>
+                </article>
+                <article class="ev-pro-tile ev-pro-reveal ev-pro-reveal-delay-1">
+                    <div class="ev-pro-tile-icon"><i class="fas fa-brain"></i></div>
+                    <h3>Intent routing</h3>
+                    <p>Gemini classification into Medical, Police, Fire, or None — ready for triage dashboards.</p>
+                </article>
+                <article class="ev-pro-tile ev-pro-reveal ev-pro-reveal-delay-2">
+                    <div class="ev-pro-tile-icon"><i class="fas fa-gauge-high"></i></div>
                     <h3>Fair limits</h3>
-                    <p>Daily voice quota, max duration per file, and upload size — all tunable from admin settings.</p>
+                    <p>Daily voice quota, duration caps, and upload size — adjustable from admin settings.</p>
+                </article>
+                <article class="ev-pro-tile ev-pro-tile wide ev-pro-reveal ev-pro-reveal-delay-3">
+                    <div class="ev-pro-tile-icon"><i class="fas fa-plug"></i></div>
+                    <h3>Developer-grade responses</h3>
+                    <p>Structured JSON with transcripts and labels so your stack doesn’t need fragile string parsing.</p>
                 </article>
             </div>
         </div>
+    </section>
 
-        <div class="ev-endpoint-panel mt-5">
-            <h3><i class="fas fa-terminal me-2 text-secondary"></i>Try it</h3>
-            <pre><code>POST /api/v1/process-audio/
-Content-Type: multipart/form-data
-X-API-Key: YOUR_KEY
+    <section id="how-it-works" class="ev-pro-section ev-pro-flow">
+        <div class="container">
+            <div class="ev-pro-section-head ev-pro-reveal text-center mx-auto">
+                <h2 class="ev-pro-h2">How it works</h2>
+                <p class="ev-pro-section-lead">Three calm steps from raw audio to something your services can act on.</p>
+            </div>
+            <div class="ev-pro-steps">
+                <div class="ev-pro-step ev-pro-reveal">
+                    <span class="ev-pro-step-num">1</span>
+                    <h3>Upload</h3>
+                    <p>Send WAV or MP3 as multipart form data with your API key.</p>
+                </div>
+                <div class="ev-pro-step-connector d-none d-lg-block" aria-hidden="true"></div>
+                <div class="ev-pro-step ev-pro-reveal ev-pro-reveal-delay-1">
+                    <span class="ev-pro-step-num">2</span>
+                    <h3>Process</h3>
+                    <p>We transcribe, translate, and classify in a single orchestrated pipeline.</p>
+                </div>
+                <div class="ev-pro-step-connector d-none d-lg-block" aria-hidden="true"></div>
+                <div class="ev-pro-step ev-pro-reveal ev-pro-reveal-delay-2">
+                    <span class="ev-pro-step-num">3</span>
+                    <h3>Integrate</h3>
+                    <p>Consume JSON in your IMS, app, or automation — wire webhooks or sync pulls.</p>
+                </div>
+            </div>
+        </div>
+    </section>
 
-audio: (wav or mp3 file)</code></pre>
+    <section id="api" class="ev-pro-section ev-pro-code-section">
+        <div class="container">
+            <div class="row g-5 align-items-center">
+                <div class="col-lg-5 ev-pro-reveal">
+                    <h2 class="ev-pro-h2">Try the endpoint</h2>
+                    <p class="ev-pro-section-lead text-start ms-0 me-0">Drop in your key and hit the processing route — the same path our dashboard test page exercises.</p>
+                    <a href="{% url 'auth:register' %}" class="btn btn-primary mt-2">Get your API key</a>
+                </div>
+                <div class="col-lg-7 ev-pro-reveal ev-pro-reveal-delay-1">
+                    <div class="ev-pro-code-panel">
+                        <div class="ev-pro-code-header">
+                            <span class="ev-pro-code-tab active">cURL</span>
+                        </div>
+<pre class="ev-pro-code-block"><code>curl -X POST \
+  -H "<span class="ev-pro-hl">X-API-Key: YOUR_KEY</span>" \
+  -F "audio=@recording.wav" \
+  https://your-host<span class="ev-pro-muted">/api/v1/process-audio/</span></code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="ev-pro-section ev-pro-final-cta">
+        <div class="container">
+            <div class="ev-pro-cta-panel ev-pro-reveal text-center">
+                <h2 class="ev-pro-h2 text-white mb-3">Ship Amharic voice features this week</h2>
+                <p class="ev-pro-cta-lead mb-4">Create an account, verify your email, and start sending audio — quotas and docs match what you see in production.</p>
+                <div class="d-flex flex-wrap justify-content-center gap-3">
+                    <a href="{% url 'auth:register' %}" class="btn btn-light btn-lg px-4 fw-semibold">Create account</a>
+                    <a href="{% url 'auth:login' %}" class="btn btn-outline-light btn-lg px-4">Log in</a>
+                </div>
+            </div>
         </div>
     </section>
 </main>
 
-<footer class="app-footer text-center py-5">
-    <small class="text-secondary">&copy; 2026 Voice To Service · Voice intelligence API</small>
+<footer class="ev-pro-footer">
+    <div class="container py-5">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-2 text-secondary small">
+                <img src="{% static 'images/voice-to-service-logo.svg' %}" alt="" width="24" height="24">
+                <span>&copy; 2026 Voice To Service · Voice intelligence API</span>
+            </div>
+            <div class="d-flex gap-4 small">
+                <a href="{% url 'auth:login' %}" class="text-decoration-none text-secondary">Log in</a>
+                <a href="{% url 'auth:register' %}" class="text-decoration-none text-secondary">Sign up</a>
+            </div>
+        </div>
+    </div>
 </footer>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function () {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var nodes = document.querySelectorAll('.ev-pro-reveal');
+  if (!('IntersectionObserver' in window)) {
+    nodes.forEach(function (n) { n.classList.add('ev-pro-inview'); });
+    return;
+  }
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) {
+        e.target.classList.add('ev-pro-inview');
+        io.unobserve(e.target);
+      }
+    });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+  nodes.forEach(function (n) { io.observe(n); });
+})();
+</script>
 </body>
 </html>
