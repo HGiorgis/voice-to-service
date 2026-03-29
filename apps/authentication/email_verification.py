@@ -7,7 +7,7 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import EmailMultiAlternatives, get_connection
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
@@ -86,15 +86,27 @@ def send_verification_email(*, user, code: str) -> None:
     html_body = render_to_string('email/email_verification.html', context)
 
     from_email = _format_from_email()
+    timeout = getattr(settings, 'EMAIL_TIMEOUT', None)
+    connection = get_connection(fail_silently=False, timeout=timeout)
     msg = EmailMultiAlternatives(
         subject=subject,
         body=body_text,
         from_email=from_email,
         to=[user.email],
+        connection=connection,
     )
     msg.attach_alternative(html_body, 'text/html')
     try:
         msg.send(fail_silently=False)
+    except OSError as exc:
+        # Errno 101 "Network is unreachable", timeouts, etc. — fail fast; do not block ASGI long.
+        logger.warning(
+            'Verification email SMTP/network error for %s (%s): %s',
+            user.email,
+            type(exc).__name__,
+            exc,
+        )
+        raise
     except Exception:
         logger.exception('Failed to send verification email to %s', user.email)
         raise

@@ -15,6 +15,7 @@ from apps.authentication.antiabuse import (
 from apps.authentication.device_info import classify_request
 from apps.authentication.models import AntiAbuseSettings, RegistrationAttempt
 from apps.core.models import SystemSettings
+from apps.users.pending_cleanup import SESSION_PENDING_VERIFY
 
 
 def assign_username_from_oauth_email(strategy, details, backend, user=None, *args, **kwargs):
@@ -94,25 +95,57 @@ def enforce_oauth_registration_rules(strategy, details, backend, user=None, *arg
 
 
 def set_google_identity(strategy, details, backend, user=None, *args, **kwargs):
-    """Trust Google-verified email; stamp profile fields."""
+    """
+    Trust Google’s verified email: activate the account, mark email verified, and clear
+    password-signup OTP state so users never see the email-code flow after OAuth.
+    """
     if user is None:
         return {}
+    req = strategy.request
     uid = (kwargs.get('uid') or '')[:255]
-    update_fields = []
+    update_fields = set()
+
     if uid and not (getattr(user, 'google_sub', None) or '').strip():
         user.google_sub = uid
-        update_fields.append('google_sub')
+        update_fields.add('google_sub')
+
     user.is_verified = True
-    update_fields.append('is_verified')
+    user.is_active = True
+    update_fields.update({'is_verified', 'is_active'})
+
+    now = timezone.now()
     if not user.email_verified_at:
-        user.email_verified_at = timezone.now()
-        update_fields.append('email_verified_at')
+        user.email_verified_at = now
+        update_fields.add('email_verified_at')
+
+    if (
+        user.email_verification_code_hash
+        or user.email_verification_sent_at is not None
+        or user.email_verification_expires_at is not None
+    ):
+        user.email_verification_code_hash = ''
+        user.email_verification_sent_at = None
+        user.email_verification_expires_at = None
+        user.email_verification_send_count = 0
+        update_fields.update(
+            {
+                'email_verification_code_hash',
+                'email_verification_sent_at',
+                'email_verification_expires_at',
+                'email_verification_send_count',
+            }
+        )
+
     email = (details or {}).get('email')
     if email and not (user.email or '').strip():
-        user.email = email
-        update_fields.append('email')
-    if update_fields:
-        user.save(update_fields=list(set(update_fields)))
+        user.email = (email or '').strip()
+        update_fields.add('email')
+
+    sid = req.session.get(SESSION_PENDING_VERIFY)
+    if sid and str(user.pk) == str(sid):
+        req.session.pop(SESSION_PENDING_VERIFY, None)
+
+    user.save(update_fields=list(update_fields))
     return {}
 
 

@@ -56,7 +56,35 @@ class CustomUserCreationForm(UserCreationForm):
         un = (self.cleaned_data.get('username') or '').strip()
         if email and not un:
             self.cleaned_data['username'] = allocate_username_from_email(email)
-        return super().clean()
+        cleaned = super().clean()
+        email = (cleaned.get('email') or '').strip()
+        if not email:
+            return cleaned
+        existing = User.objects.filter(email__iexact=email).first()
+        if not existing:
+            return cleaned
+        if existing.is_verified:
+            self.add_error(
+                'email',
+                'That email is already registered. Sign in or use a different address.',
+            )
+            return cleaned
+        pw1 = cleaned.get('password1') or ''
+        pw2 = cleaned.get('password2') or ''
+        if (
+            pw1
+            and pw2
+            and pw1 == pw2
+            and existing.has_usable_password()
+            and existing.check_password(pw1)
+        ):
+            return cleaned
+        if pw1 and pw2 and pw1 == pw2:
+            self.add_error(
+                'email',
+                'That email is already registered. Sign in or use a different address.',
+            )
+        return cleaned
 
     def clean_username(self):
         username = (self.cleaned_data.get('username') or '').strip()
@@ -78,10 +106,6 @@ class CustomUserCreationForm(UserCreationForm):
                 raise ValidationError(PUBLIC_DISPOSABLE_EMAIL_DENIED_MESSAGE)
             if cfg.require_gmail_domain_for_password_signup and dom and not is_gmail_domain(dom):
                 raise ValidationError(PUBLIC_GMAIL_ONLY_SIGNUP_MESSAGE)
-        if User.objects.filter(email__iexact=email).exists():
-            raise ValidationError(
-                'That email is already registered. Sign in or use a different address.'
-            )
         return email
 
     def save(self, commit=True):

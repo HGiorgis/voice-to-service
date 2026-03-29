@@ -9,6 +9,7 @@ from django.http import HttpResponseNotAllowed, JsonResponse, StreamingHttpRespo
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.conf import settings
 from django.shortcuts import render, redirect
+from django.templatetags.static import static
 from django.urls import reverse
 from django.contrib.auth import authenticate, get_user_model, login, logout, update_session_auth_hash
 
@@ -165,6 +166,29 @@ def _send_verification_email_for_login_attempt(request, user):
         )
 
 
+def _apply_google_oauth_verification_state(user) -> bool:
+    """
+    If the account is linked to Google, treat it as email-verified (Google already proved the inbox).
+    Returns True when google_sub is set and flags were synced if needed.
+    """
+    google_sub = (getattr(user, 'google_sub', None) or '').strip()
+    if not google_sub:
+        return False
+    fix = []
+    if not user.is_verified:
+        user.is_verified = True
+        fix.append('is_verified')
+    if not user.is_active:
+        user.is_active = True
+        fix.append('is_active')
+    if not user.email_verified_at:
+        user.email_verified_at = timezone.now()
+        fix.append('email_verified_at')
+    if fix:
+        user.save(update_fields=fix)
+    return True
+
+
 def landing_page_view(request):
     """Public landing page at / ."""
     return render(request, 'landing.html')
@@ -231,8 +255,46 @@ def register_view(request):
             ctx['form'] = CustomUserCreationForm(request.POST)
             return render(request, 'auth/register.html', ctx)
 
+        posted_password1 = (request.POST.get('password1') or '')
+        posted_password2 = (request.POST.get('password2') or '')
+        User = get_user_model()
+        existing_user = User.objects.filter(email__iexact=posted_email).first()
+        if existing_user:
+            dup_msg = 'That email is already registered. Sign in or use a different address.'
+            if existing_user.is_verified:
+                messages.error(request, dup_msg)
+                ctx['form'] = CustomUserCreationForm(request.POST)
+                return render(request, 'auth/register.html', ctx)
+            passwords_match_each_other = bool(
+                posted_password1 and posted_password2 and posted_password1 == posted_password2
+            )
+            if passwords_match_each_other:
+                if existing_user.has_usable_password() and existing_user.check_password(
+                    posted_password1
+                ):
+                    request.session[SESSION_PENDING_VERIFY] = str(existing_user.pk)
+                    messages.info(
+                        request,
+                        'This email already has a pending account. Finish verification below — '
+                        'use “Resend code” if you need a new email.',
+                    )
+                    response = redirect('auth:verify-email')
+                    attach_device_cookie(response, existing_user)
+                    return response
+                messages.error(request, dup_msg)
+                ctx['form'] = CustomUserCreationForm(request.POST)
+                return render(request, 'auth/register.html', ctx)
+
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
+            reg_email = (form.cleaned_data.get('email') or '').strip()
+            if User.objects.filter(email__iexact=reg_email).exists():
+                messages.error(
+                    request,
+                    'That email is already registered. Sign in or use a different address.',
+                )
+                ctx['form'] = form
+                return render(request, 'auth/register.html', ctx)
             user = form.save(commit=False)
             user.registration_ip = ip
             user.registration_fingerprint_hash = fph
@@ -462,6 +524,7 @@ def login_view(request):
             password = form.cleaned_data.get('password')
             user = authenticate(username=username, password=password)
             if user is not None:
+                _apply_google_oauth_verification_state(user)
                 if not getattr(user, 'is_verified', False):
                     _send_verification_email_for_login_attempt(request, user)
                     return redirect('auth:verify-email')
@@ -486,15 +549,31 @@ def login_view(request):
                     return redirect('admin:dashboard')
                 return redirect('user:dashboard')
         else:
-            if (
-                matched
-                and matched.has_usable_password()
-                and password
-                and matched.check_password(password)
-                and not getattr(matched, 'is_verified', False)
-            ):
-                _send_verification_email_for_login_attempt(request, matched)
-                return redirect('auth:verify-email')
+            if matched and matched.has_usable_password() and password and matched.check_password(password):
+                _apply_google_oauth_verification_state(matched)
+                matched.refresh_from_db()
+                if not getattr(matched, 'is_verified', False):
+                    _send_verification_email_for_login_attempt(request, matched)
+                    return redirect('auth:verify-email')
+                cfg = AntiAbuseSettings.get_settings()
+                if cfg.enforce_admin_block and getattr(matched, 'is_blocked', False):
+                    messages.error(
+                        request,
+                        (getattr(matched, 'blocked_reason', None) or 'Your account has been suspended.')[
+                            :2000
+                        ],
+                    )
+                    return render(
+                        request,
+                        'auth/login.html',
+                        {'form': CustomAuthenticationForm(), 'google_oauth_enabled': google_on},
+                    )
+                login(request, matched, backend=MODEL_BACKEND)
+                greet = (matched.get_short_name() or matched.username or '').strip() or 'there'
+                messages.success(request, f'Welcome back, {greet}!')
+                if matched.is_staff:
+                    return redirect('admin:dashboard')
+                return redirect('user:dashboard')
             messages.error(request, 'Invalid email, username, or password.')
     else:
         form = CustomAuthenticationForm()
