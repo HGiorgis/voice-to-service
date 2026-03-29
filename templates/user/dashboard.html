@@ -172,7 +172,7 @@
             <button type="button" class="copy-btn" onclick="copyToClipboard(document.querySelector('#quickstart-code').innerText)"><i class="fas fa-copy me-1"></i>Copy</button>
             <pre id="quickstart-code" class="mb-0"><code><span class="code-keyword">import</span> requests
 
-<span class="code-var">url</span> = <span class="code-string">"https://your-domain.com/api/v1/process-audio/"</span>
+<span class="code-var">url</span> = <span class="code-string">"https://voice-to-service.onrender.com/api/v1/process-audio/"</span>
 <span class="code-var">headers</span> = {<span class="code-string">"X-API-Key"</span>: <span class="code-string">"your-secret-key"</span>}
 <span class="code-var">files</span> = {<span class="code-string">"audio"</span>: open(<span class="code-string">"clip.wav"</span>, <span class="code-string">"rb"</span>)}
 <span class="code-keyword">r</span> = requests.post(url, headers=headers, files=files)
